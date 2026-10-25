@@ -17,9 +17,15 @@ agent) under the same rules.
 
 ## Status
 
-v0.1 is in progress. The simulator, baselines and tests are done. **The results
-table is not filled in yet**: it waits for the first real data download (see
-[Get the data](#get-the-data)).
+v0.1 is in progress.
+
+- **Done:** simulator, settlement, environment, three baselines and the data
+  pipeline. All unit tests pass. They use synthetic prices only.
+- **Not done: no real data has been downloaded yet** (see
+  [Get the data](#get-the-data)). So the gridstatusio column mapping has not
+  been checked against a live API response, there is no cleaning report, the
+  [data checksum](#data-checksum) is empty, and the [results table](#results)
+  is not filled in.
 
 ## Install
 

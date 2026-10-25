@@ -16,6 +16,9 @@ dependencies = [
     "scipy>=1.11",
     "gymnasium>=0.29",
     "pyyaml>=6",
+    # IANA time zones for zoneinfo. pandas 3 no longer pulls this in on Linux,
+    # and newer system tz databases drop the "US/Central" alias.
+    "tzdata",
 ]
 
 [project.optional-dependencies]

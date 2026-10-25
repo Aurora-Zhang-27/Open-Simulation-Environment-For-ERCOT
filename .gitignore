@@ -9,3 +9,5 @@ dist/
 
 # Raw download cache (re-creatable with scripts/download_data.py)
 data/raw/
+# Cleaned data and gap report: not redistributed (see README, "Get the data")
+data/processed/
