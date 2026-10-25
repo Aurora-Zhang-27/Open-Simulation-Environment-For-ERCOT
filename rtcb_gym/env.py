@@ -26,6 +26,13 @@ and in the next observation) after the action is settled.
 Reward
     Net settlement revenue of the interval in USD (energy revenue minus
     degradation cost), see :mod:`rtcb_gym.settlement`.
+
+SoC at the episode edges
+    Each episode starts at ``soc_init`` and must end at or above
+    ``soc_terminal_min`` (both in :class:`~rtcb_gym.battery.BatteryParams`;
+    default 0 and 0). The end target is enforced step by step, so near the
+    end the env may limit discharge or force charging; such steps are counted
+    as clipped with reason ``soc_terminal``.
 """
 
 from __future__ import annotations
@@ -38,7 +45,7 @@ import gymnasium as gym
 import numpy as np
 import pandas as pd
 
-from rtcb_gym.battery import BatteryParams, battery_step
+from rtcb_gym.battery import BatteryParams, battery_step, terminal_floor
 from rtcb_gym.data.clean import ERCOT_TZ, INTERVAL, intervals_per_day, to_date
 from rtcb_gym.settlement import settle_real_time
 
@@ -99,6 +106,13 @@ class RTCBEnv(gym.Env):
         if not self._episodes:
             raise ValueError("no usable episode days (check gaps and history_len)")
         self.days: list[dt.date] = sorted(self._episodes)
+        shortest = min(end - start for start, end in self._episodes.values())
+        p = self.battery_params
+        if p.soc_init < terminal_floor(p, shortest, self.dt_hours) - 1e-12:
+            raise ValueError(
+                f"soc_terminal_min {p.soc_terminal_min} cannot be reached from soc_init "
+                f"{p.soc_init} within {shortest} intervals"
+            )
 
         n = self.history_len
         self.obs_layout = {
@@ -197,7 +211,9 @@ class RTCBEnv(gym.Env):
         command_mw = min(max(a, -1.0), 1.0) * params.power_mw
 
         t = self._t
-        actual, self._soc, binfo = battery_step(params, self._soc, command_mw, self.dt_hours)
+        actual, self._soc, binfo = battery_step(
+            params, self._soc, command_mw, self.dt_hours, steps_left=self._end - t
+        )
         price = float(self._price[t])
         s = settle_real_time(actual, self.dt_hours, price, params.degradation_cost_usd_per_mwh)
 

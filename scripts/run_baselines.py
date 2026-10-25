@@ -15,7 +15,7 @@ import math
 from rtcb_gym.baselines import ForecastMPC, PerfectForesight, fit_threshold_rule
 from rtcb_gym.battery import BatteryParams
 from rtcb_gym.config import REPO_ROOT, load_config, resolve_path
-from rtcb_gym.data.store import processed_path, read_prices
+from rtcb_gym.data.store import data_sha256, processed_path, read_prices
 from rtcb_gym.env import RTCBEnv
 from rtcb_gym.evaluation import days_between, markdown_table, metrics_row, parse_splits, prices_in_days, run_policy
 
@@ -31,6 +31,11 @@ def main() -> None:
     params = BatteryParams.from_dict(cfg["battery"])
     prices = read_prices(processed_path(resolve_path(cfg["data"]["processed_dir"]), m["location"], m["market"]))
     splits = parse_splits(cfg["splits"])
+    digest = data_sha256(prices)
+    expected = cfg["data"].get("expected_sha256")
+    print(f"data sha256: {digest}")
+    if expected and digest != expected:
+        print(f"WARNING: expected {expected}; results will not match the published table")
 
     envs = {}
     for name, (start, end) in splits.items():
@@ -84,6 +89,7 @@ def main() -> None:
     (out_dir / "baselines.md").write_text(table + "\n")
     payload = {
         "config": cfg,
+        "data_sha256": digest,
         "threshold_rule": {"low_price": threshold.low_price, "high_price": threshold.high_price, "search": search},
         "rows": [{k: (None if isinstance(v, float) and math.isnan(v) else v) for k, v in r.items()} for r in rows],
         "runs": runs,

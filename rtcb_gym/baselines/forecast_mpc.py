@@ -1,7 +1,8 @@
 """Forecast + model predictive control (rolling-horizon LP).
 
 At every interval: forecast prices from now to the end of the horizon, solve
-the dispatch LP from the current SoC, apply only the first action, repeat.
+the dispatch LP from the current SoC (with the episode's end-SoC target),
+apply only the first action, repeat.
 
 The forecaster only sees the observation, so it cannot look ahead. Better
 forecasters plug in through the ``forecaster`` argument:
@@ -20,7 +21,7 @@ import numpy as np
 
 from rtcb_gym.baselines.base import Policy
 from rtcb_gym.baselines.optimize import solve_dispatch
-from rtcb_gym.battery import BatteryParams
+from rtcb_gym.battery import BatteryParams, terminal_floor
 
 Forecaster = Callable[[np.ndarray, int], np.ndarray]
 LAG_24H = 96  # 15-minute intervals in 24 hours
@@ -58,9 +59,13 @@ class ForecastMPC(Policy):
         self.max_horizon = max_horizon
 
     def act(self, obs: np.ndarray, info: dict[str, Any]) -> np.ndarray:
-        horizon = min(int(info["steps_remaining"]), self.max_horizon)
+        steps_left = int(info["steps_remaining"])
+        horizon = min(steps_left, self.max_horizon)
         forecast = self.forecaster(obs[self.layout["prices"]], horizon)
         soc = float(obs[self.layout["soc"]][0])
-        plan = solve_dispatch(forecast, self.params, soc, self.dt_hours)
+        # If the horizon stops before the episode ends, only require the SoC
+        # from which the end target is still reachable.
+        end_min = terminal_floor(self.params, steps_left - horizon, self.dt_hours)
+        plan = solve_dispatch(forecast, self.params, soc, self.dt_hours, soc_end_min=end_min)
         a = plan.power_mw[0] / self.params.power_mw
         return np.array([min(max(a, -1.0), 1.0)])

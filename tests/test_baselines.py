@@ -7,6 +7,7 @@ from conftest import make_prices
 from rtcb_gym.baselines import (
     ForecastMPC,
     PerfectForesight,
+    Policy,
     ThresholdRule,
     fit_threshold_rule,
     persistence_24h,
@@ -154,3 +155,50 @@ def test_markdown_table_format(prices):
     upper = run_policy(env, PerfectForesight(prices, DEFAULT))
     table = markdown_table([metrics_row("test", upper, upper, DEFAULT.energy_mwh)])
     assert "| test | Perfect foresight | 1 |" in table and "100.0%" in table
+
+
+CROSS_DAY = BatteryParams(soc_init=0.5, soc_terminal_min=0.5)
+
+
+class RandomPolicy(Policy):
+    name = "random"
+
+    def __init__(self, seed):
+        self.rng = np.random.default_rng(seed)
+
+    def act(self, obs, info):
+        return self.rng.uniform(-1, 1, size=1)
+
+
+def test_lp_end_target():
+    prices = np.array([10.0] * 4 + [200.0] * 4)
+    free = solve_dispatch(prices, CROSS_DAY, 0.5, 0.25, soc_end_min=0.0)
+    held = solve_dispatch(prices, CROSS_DAY, 0.5, 0.25)  # default: params.soc_terminal_min
+    assert free.soc[-1] == pytest.approx(0.0, abs=1e-9)
+    assert held.soc[-1] >= 0.5 - 1e-9
+    assert held.revenue_usd < free.revenue_usd
+
+
+def test_upper_bound_holds_with_cross_day_end_target(prices):
+    env = RTCBEnv(prices, CROSS_DAY)
+    pf = PerfectForesight(prices, CROSS_DAY)
+    upper = run_policy(env, pf)
+    assert upper.revenue_usd == pytest.approx(pf.planned_revenue_usd, rel=1e-9)
+    assert upper.n_clipped == 0
+    others = [
+        run_policy(env, ThresholdRule(20.0, 45.0, CROSS_DAY, env.obs_layout)),
+        run_policy(env, ForecastMPC(CROSS_DAY, env.obs_layout)),
+        run_policy(env, RandomPolicy(0)),
+    ]
+    for r in others:
+        assert all(a <= b + 1e-6 for a, b in zip(r.daily_revenue_usd, upper.daily_revenue_usd))
+    assert others[0].n_clipped == 0  # the rule respects the end target itself
+    assert others[1].n_clipped == 0
+
+
+def test_mpc_matches_perfect_foresight_with_end_target():
+    p = make_prices(days=4, periodic=True)
+    env = RTCBEnv(p, CROSS_DAY, days=["2026-03-02", "2026-03-03"])
+    upper = run_policy(env, PerfectForesight(p, CROSS_DAY))
+    mpc = run_policy(env, ForecastMPC(CROSS_DAY, env.obs_layout))
+    assert mpc.revenue_usd == pytest.approx(upper.revenue_usd, rel=1e-6)

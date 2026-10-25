@@ -3,7 +3,8 @@
 Signal: the last settled real-time price (the newest price in the
 observation). Charge at the largest feasible power when the signal is at or
 below a low threshold, discharge at the largest feasible power when it is at
-or above a high threshold, otherwise stay idle.
+or above a high threshold, otherwise stay idle. Requests always stay within
+what the battery and the end-of-episode SoC target allow.
 
 Thresholds are quantiles of training-split prices. The quantile pair is
 chosen by training-split revenue only (:func:`fit_threshold_rule`).
@@ -42,13 +43,14 @@ class ThresholdRule(Policy):
     def act(self, obs: np.ndarray, info: dict[str, Any]) -> np.ndarray:
         signal = obs[self.layout["prices"]][-1]
         soc = float(obs[self.layout["soc"]][0])
-        lo, hi = feasible_power_range(self.params, soc, self.dt_hours)
+        steps_left = int(info["steps_remaining"])
+        lo, hi = feasible_power_range(self.params, soc, self.dt_hours, steps_left)
         if signal <= self.low_price:
             power = lo
         elif signal >= self.high_price:
             power = hi
         else:
-            power = 0.0
+            power = min(max(0.0, lo), hi)  # idle, unless the end-SoC target forces charging
         return np.array([power / self.params.power_mw])
 
 

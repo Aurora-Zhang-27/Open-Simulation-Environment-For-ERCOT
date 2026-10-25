@@ -221,3 +221,45 @@ def test_rejects_bad_inputs(prices):
     env.reset(options={"day": "2026-03-05"})
     with pytest.raises(ValueError):
         env.step(np.array([np.nan]))
+
+
+CROSS_DAY = BatteryParams(soc_init=0.5, soc_terminal_min=0.5)
+
+
+def test_end_target_always_met_by_random_actions(prices):
+    env = RTCBEnv(prices, CROSS_DAY)
+    rng = np.random.default_rng(0)
+    for day in env.days:
+        env.reset(options={"day": day})
+        terminated = False
+        while not terminated:
+            _, _, terminated, _, info = env.step(rng.uniform(-1, 1, size=1))
+        assert info["soc"] >= 0.5 - 1e-9
+
+
+def test_end_target_forced_charging_is_counted(prices):
+    env = RTCBEnv(prices, CROSS_DAY)
+    env.reset(options={"day": "2026-03-05"})
+    reasons, terminated = [], False
+    while not terminated:  # always ask to discharge at full power
+        _, _, terminated, _, info = env.step(np.array([1.0]))
+        reasons.append(info["clip_reason"])
+    assert "soc_terminal" in reasons
+    assert info["soc"] == pytest.approx(0.5)
+    assert info["actual_power_mw"] < 0  # the last steps were forced to charge
+
+
+def test_end_target_applies_at_episode_end_only(prices):
+    env = RTCBEnv(prices, CROSS_DAY, episode_days=2)
+    env.reset(options={"day": "2026-03-02"})
+    socs = []
+    for _ in range(96):  # day 1: discharge all the way, allowed
+        _, _, _, _, info = env.step(np.array([1.0]))
+        socs.append(info["soc"])
+    assert min(socs) == 0.0
+
+
+def test_unreachable_end_target_rejected(prices):
+    tiny = BatteryParams(power_mw=1.0, energy_mwh=200.0, soc_init=0.0, soc_terminal_min=1.0)
+    with pytest.raises(ValueError, match="cannot be reached"):
+        RTCBEnv(prices, tiny)

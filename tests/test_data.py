@@ -1,6 +1,7 @@
 """Data layer: cleaning rules, parquet schema, fetch caching (no network)."""
 
 import datetime as dt
+import hashlib
 
 import numpy as np
 import pandas as pd
@@ -195,3 +196,24 @@ def test_missing_api_key(monkeypatch):
     monkeypatch.delenv(fetch.API_KEY_ENV, raising=False)
     with pytest.raises(RuntimeError, match="GRIDSTATUS_API_KEY"):
         fetch.make_client()
+
+
+def test_checksum_pins_the_canonical_format():
+    p = make_prices(days=1).iloc[:2].copy()
+    p["price_usd_per_mwh"] = [12.5, -3.25]
+    expected = hashlib.sha256(
+        b"rtcb-gym-prices-v1\n"
+        b"2026-03-01T06:00:00Z,2026-03-01T06:15:00Z,HB_WEST,REAL_TIME_15_MIN,12.5\n"
+        b"2026-03-01T06:15:00Z,2026-03-01T06:30:00Z,HB_WEST,REAL_TIME_15_MIN,-3.25\n"
+    ).hexdigest()
+    assert store.data_sha256(p) == expected
+
+
+def test_checksum_survives_parquet_round_trip_and_detects_changes(tmp_path):
+    df, _ = clean_prices(raw_from(make_prices(days=3)), "HB_WEST", "2026-03-01", "2026-03-03")
+    digest = store.data_sha256(df)
+    path = store.write_prices(df, tmp_path / "x.parquet")
+    assert store.data_sha256(store.read_prices(path)) == digest
+    changed = df.copy()
+    changed.loc[100, "price_usd_per_mwh"] += 0.01
+    assert store.data_sha256(changed) != digest

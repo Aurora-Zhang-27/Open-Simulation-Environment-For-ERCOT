@@ -12,9 +12,12 @@ Schema (one row per 15-minute interval and location):
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pandas as pd
+
+CHECKSUM_FORMAT = "rtcb-gym-prices-v1"
 
 COLUMNS = [
     "interval_start_utc",
@@ -80,3 +83,27 @@ def read_prices(path: str | Path) -> pd.DataFrame:
     df["local_time"] = df["local_time"].dt.as_unit("ns")
     validate_prices(df)
     return df[COLUMNS].reset_index(drop=True)
+
+
+def data_sha256(df: pd.DataFrame) -> str:
+    """SHA-256 of cleaned prices in a canonical text form.
+
+    The parquet bytes depend on library versions, so the hash is taken over
+    text instead: a header line, then one line per row,
+    ``start_utc,end_utc,location,market,price``, with times as
+    ``YYYY-MM-DDTHH:MM:SSZ`` and prices in Python's shortest round-trip
+    float form. Same data -> same hash on any machine.
+    """
+    validate_prices(df)
+    fmt = "%Y-%m-%dT%H:%M:%SZ"
+    h = hashlib.sha256(f"{CHECKSUM_FORMAT}\n".encode())
+    rows = zip(
+        df["interval_start_utc"].dt.strftime(fmt),
+        df["interval_end_utc"].dt.strftime(fmt),
+        df["location"].astype(str),
+        df["market"].astype(str),
+        df["price_usd_per_mwh"].tolist(),
+    )
+    for start, end, location, market, price in rows:
+        h.update(f"{start},{end},{location},{market},{price!r}\n".encode())
+    return h.hexdigest()

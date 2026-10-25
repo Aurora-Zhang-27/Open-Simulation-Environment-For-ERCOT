@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from rtcb_gym.battery import Battery, BatteryParams, battery_step, feasible_power_range
+from rtcb_gym.battery import Battery, BatteryParams, battery_step, feasible_power_range, terminal_floor
 
 P = BatteryParams(power_mw=100, energy_mwh=200, rte=0.81, soc_min=0.0, soc_max=1.0,
                   soc_init=0.5, degradation_cost_usd_per_mwh=0.0)
@@ -125,8 +125,51 @@ def test_non_finite_power_rejected(bad):
 @pytest.mark.parametrize(
     "kwargs",
     [dict(power_mw=0), dict(energy_mwh=-1), dict(rte=1.2), dict(rte=0),
-     dict(soc_min=0.6, soc_max=0.5), dict(soc_init=1.5), dict(degradation_cost_usd_per_mwh=-1)],
+     dict(soc_min=0.6, soc_max=0.5), dict(soc_init=1.5), dict(degradation_cost_usd_per_mwh=-1),
+     dict(soc_terminal_min=1.5), dict(soc_terminal_min=-0.1)],
 )
 def test_invalid_params(kwargs):
     with pytest.raises(ValueError):
         BatteryParams(**kwargs)
+
+
+# End-of-episode target. Full-power charging adds 100 * 0.25 * 0.9 / 200 =
+# 0.1125 SoC per interval.
+T50 = BatteryParams(power_mw=100, energy_mwh=200, rte=0.81, soc_init=0.5,
+                    soc_terminal_min=0.5, degradation_cost_usd_per_mwh=0.0)
+
+
+def test_terminal_floor():
+    assert terminal_floor(T50, 0, DT) == 0.5
+    assert terminal_floor(T50, 2, DT) == pytest.approx(0.5 - 2 * 0.1125)
+    assert terminal_floor(T50, 10, DT) == 0.0  # never below soc_min
+    assert terminal_floor(P, 0, DT) == 0.0  # no target by default
+
+
+def test_terminal_target_limits_discharge_on_last_interval():
+    # SoC 0.6, target 0.5: 20 MWh may leave storage -> 18 MWh to the grid = 72 MW.
+    actual, soc, info = battery_step(T50, 0.6, 100.0, DT, steps_left=1)
+    assert actual == pytest.approx(72.0)
+    assert soc == pytest.approx(0.5)
+    assert info["clipped"] and info["clip_reason"] == "soc_terminal"
+
+
+def test_terminal_target_forces_charge():
+    # 2 intervals left at SoC 0.3: after this one SoC must be >= 0.5 - 0.1125
+    # = 0.3875, so store 17.5 MWh = 17.5 / 0.9 MWh from the grid in 15 min.
+    actual, soc, info = battery_step(T50, 0.3, 0.0, DT, steps_left=2)
+    assert actual == pytest.approx(-17.5 / 0.9 / DT)
+    assert soc == pytest.approx(0.3875)
+    assert info["clip_reason"] == "soc_terminal"
+    lo, hi = feasible_power_range(T50, 0.3, DT, steps_left=2)
+    assert hi == pytest.approx(actual) and lo == -100.0
+
+
+def test_terminal_target_ignored_without_steps_left():
+    actual, _, info = battery_step(T50, 0.6, 100.0, DT)
+    assert actual == 100.0 and not info["clipped"]
+
+
+def test_terminal_target_far_from_end_does_not_bind():
+    actual, _, info = battery_step(T50, 0.6, 100.0, DT, steps_left=50)
+    assert actual == 100.0 and not info["clipped"]

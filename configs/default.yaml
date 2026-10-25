@@ -17,6 +17,9 @@ data:
   raw_dir: data/raw               # download cache (git-ignored)
   processed_dir: data/processed   # cleaned parquet, one file per location
   sleep_sec: 2                    # pause between API calls
+  # SHA-256 of the cleaned data behind the published results (see README).
+  # download_data.py fails if your download hashes differently.
+  expected_sha256: null           # filled in after the first full download
 
 battery:
   power_mw: 100.0
@@ -24,7 +27,12 @@ battery:
   rte: 0.85                       # round-trip; split as sqrt(rte) on charge and on discharge
   soc_min: 0.0                    # fractions of energy_mwh
   soc_max: 1.0
-  soc_init: 0.0                   # every episode starts empty (see README)
+  # Episode edges. Default: start empty, no end target, so no strategy gets
+  # free stored energy and perfect foresight is an exact upper bound.
+  # For cross-day arbitrage (charge tonight, sell tomorrow morning) use e.g.
+  # soc_init: 0.5 and soc_terminal_min: 0.5; the upper bound still holds.
+  soc_init: 0.0
+  soc_terminal_min: 0.0           # lowest SoC allowed at the end of an episode
   degradation_cost_usd_per_mwh: 2.0
 
 env:

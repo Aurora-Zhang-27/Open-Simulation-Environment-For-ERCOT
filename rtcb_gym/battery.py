@@ -11,6 +11,14 @@ evenly: sqrt(rte) on charge and sqrt(rte) on discharge, so
 
 State of charge (SoC) is a fraction of ``energy_mwh``.
 
+Episode SoC rule: ``soc_init`` is the SoC at the start of an episode and
+``soc_terminal_min`` the lowest SoC allowed at its end. The end target is
+enforced step by step: when ``steps_left`` is given, the battery may not go
+below the SoC from which the target can still be reached by charging at full
+power for the remaining intervals. Near the end this can limit discharge or
+force charging. Every trajectory the environment allows therefore ends at or
+above the target, which keeps perfect foresight an exact upper bound.
+
 The model is pure and deterministic: no prices, no randomness, no hidden state
 beyond the SoC held by :class:`Battery`.
 """
@@ -35,6 +43,7 @@ class BatteryParams:
     soc_min: float = 0.0
     soc_max: float = 1.0
     soc_init: float = 0.0
+    soc_terminal_min: float = 0.0
     degradation_cost_usd_per_mwh: float = 2.0
 
     def __post_init__(self) -> None:
@@ -51,6 +60,11 @@ class BatteryParams:
         if not self.soc_min <= self.soc_init <= self.soc_max:
             raise ValueError(
                 f"soc_init {self.soc_init} outside [{self.soc_min}, {self.soc_max}]"
+            )
+        # A target at or below soc_min means "no end target".
+        if not 0 <= self.soc_terminal_min <= self.soc_max:
+            raise ValueError(
+                f"soc_terminal_min {self.soc_terminal_min} outside [0, {self.soc_max}]"
             )
         if self.degradation_cost_usd_per_mwh < 0:
             raise ValueError("degradation_cost_usd_per_mwh must be >= 0")
@@ -71,28 +85,59 @@ class BatteryParams:
         return asdict(self)
 
 
-def feasible_power_range(
-    params: BatteryParams, soc: float, dt_hours: float
-) -> tuple[float, float]:
-    """Return (min_power_mw, max_power_mw) that the battery can deliver this
-    interval without breaking power or SoC limits. min is <= 0 (charging)."""
+def terminal_floor(params: BatteryParams, steps_after: int, dt_hours: float) -> float:
+    """Lowest SoC from which ``soc_terminal_min`` is still reachable by charging
+    at full power for ``steps_after`` more intervals (never below soc_min)."""
+    gain_per_step = params.power_mw * dt_hours * params.eta_charge / params.energy_mwh
+    return max(params.soc_min, params.soc_terminal_min - steps_after * gain_per_step)
+
+
+def _power_range(
+    params: BatteryParams, soc: float, dt_hours: float, steps_left: int | None
+) -> tuple[float, float, str]:
     if not dt_hours > 0:
         raise ValueError(f"dt_hours must be > 0, got {dt_hours}")
     e = params.energy_mwh
-    max_discharge = (soc - params.soc_min) * e * params.eta_discharge / dt_hours
+    floor, floor_name = params.soc_min, "soc_min"
+    if steps_left is not None:
+        f = terminal_floor(params, steps_left - 1, dt_hours)
+        if f > floor:
+            floor, floor_name = f, "soc_terminal"
     max_charge = (params.soc_max - soc) * e / (params.eta_charge * dt_hours)
-    hi = min(params.power_mw, max(max_discharge, 0.0))
     lo = -min(params.power_mw, max(max_charge, 0.0))
+    if soc >= floor:
+        hi = min(params.power_mw, (soc - floor) * e * params.eta_discharge / dt_hours)
+    else:  # below the floor: must charge at least this much
+        hi = -(floor - soc) * e / (params.eta_charge * dt_hours)
+    return lo, max(hi, lo), floor_name
+
+
+def feasible_power_range(
+    params: BatteryParams, soc: float, dt_hours: float, steps_left: int | None = None
+) -> tuple[float, float]:
+    """Return (min_power_mw, max_power_mw) the battery may deliver this interval
+    without breaking power or SoC limits. min is <= 0 (charging).
+
+    With ``steps_left`` (intervals left in the episode, this one included) the
+    end-of-episode target ``soc_terminal_min`` is enforced too; max can then
+    be negative, meaning the battery must charge.
+    """
+    lo, hi, _ = _power_range(params, soc, dt_hours, steps_left)
     return lo, hi
 
 
 def battery_step(
-    params: BatteryParams, soc: float, power_mw: float, dt_hours: float
+    params: BatteryParams,
+    soc: float,
+    power_mw: float,
+    dt_hours: float,
+    steps_left: int | None = None,
 ) -> tuple[float, float, dict[str, Any]]:
     """Apply one interval of requested power.
 
     Returns ``(actual_power_mw, new_soc, info)``. The request is clipped first
-    to the power limit, then to what the SoC limits allow; ``info`` records
+    to the power limit, then to what the SoC limits allow (and, if
+    ``steps_left`` is given, the end-of-episode target); ``info`` records
     whether clipping happened and which limit was binding.
     """
     requested = float(power_mw)
@@ -107,10 +152,10 @@ def battery_step(
         p = math.copysign(params.power_mw, p)
         reason = "power_limit"
 
-    lo, hi = feasible_power_range(params, soc, dt_hours)
+    lo, hi, floor_name = _power_range(params, soc, dt_hours, steps_left)
     if p > hi:
         p = hi
-        reason = "soc_min"  # not enough stored energy to discharge more
+        reason = floor_name  # soc_min, or soc_terminal: keep the end target reachable
     elif p < lo:
         p = lo
         reason = "soc_max"  # not enough headroom to charge more
@@ -151,6 +196,8 @@ class Battery:
         self.soc = self.params.soc_init if soc is None else float(soc)
         return self.soc
 
-    def step(self, power_mw: float, dt_hours: float) -> tuple[float, float, dict[str, Any]]:
-        actual, self.soc, info = battery_step(self.params, self.soc, power_mw, dt_hours)
+    def step(
+        self, power_mw: float, dt_hours: float, steps_left: int | None = None
+    ) -> tuple[float, float, dict[str, Any]]:
+        actual, self.soc, info = battery_step(self.params, self.soc, power_mw, dt_hours, steps_left)
         return actual, self.soc, info

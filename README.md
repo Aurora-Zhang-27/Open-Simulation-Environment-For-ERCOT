@@ -1,6 +1,6 @@
 # RTCB-Gym
 
-*The first open battery-storage market environment for the post-RTC+B ERCOT market.*
+*An open battery-storage environment built for the post-RTC+B ERCOT market.*
 
 ERCOT launched **Real-Time Co-optimization + Batteries (RTC+B)** on Operating
 Day **2025-12-05**. RTCB-Gym replays real ERCOT real-time prices from that day
@@ -44,6 +44,11 @@ This downloads one calendar month at a time, caches the raw responses under
 `data/raw/` (so later runs work offline), cleans them and writes
 `data/processed/ercot_real_time_15_min_hb_west.parquet` and a gap report.
 
+**The data is not committed to this repository.** GridStatus is a hosted
+service that needs a key, and its terms have not been checked for
+redistribution. Download with your own key instead, then check the data
+against the checksum below.
+
 Cleaning rules:
 - Times are stored in UTC, plus a `local_time` column in US/Central.
 - An interval belongs to the operating day of its local start time. DST days
@@ -52,14 +57,30 @@ Cleaning rules:
   run.
 - **Gaps are reported, never filled.** Days with gaps are left out of episodes.
 
+### Data checksum
+
+`download_data.py` prints a SHA-256 of the cleaned data. The hash is computed
+over a canonical text form of the rows (UTC times, location, market, price),
+not over the parquet bytes, so it does not depend on library versions. If
+your hash matches the one below, you have exactly the data behind the
+results table.
+
+| Hub | Operating days | SHA-256 of cleaned data |
+|---|---|---|
+| HB_WEST | 2025-12-05 .. 2026-10-24 | *pending first download* |
+
+Put the published value in `data.expected_sha256` in the config and
+`download_data.py` will fail on a mismatch. A mismatch can also mean the
+source revised some prices after publication.
+
 ## Reproduce the results table
 
 ```bash
 python scripts/run_baselines.py
 ```
 
-It prints a markdown table and writes `results/baselines.md` and
-`results/baselines.json`.
+It prints the data hash and a markdown table, and writes
+`results/baselines.md` and `results/baselines.json`.
 
 ## Results
 
@@ -102,8 +123,27 @@ while not terminated:
 intervals *t−96 … t−1* only. Tests fail if a future price leaks into the
 observation.
 
-Each episode starts with the battery empty (`soc_init: 0`), and there is no
-end-of-day SoC target, so no strategy gets free stored energy.
+### SoC at the start and end of an episode
+
+Two settings in the `battery` section of the config:
+
+| Setting | Meaning | Default |
+|---|---|---|
+| `soc_init` | SoC at the start of every episode | 0 |
+| `soc_terminal_min` | lowest SoC allowed at the end of the episode | 0 |
+
+The default starts every day empty with no end target, so no strategy gets
+free stored energy. The cost is that cross-day arbitrage (charge tonight,
+sell tomorrow morning) is not possible. For that, use the setting common in
+the literature: `soc_init: 0.5`, `soc_terminal_min: 0.5`.
+
+The end target is enforced step by step. Before each interval the env checks
+that the target can still be reached by charging at full power for the
+remaining intervals; if not, it limits discharge or forces charging, and
+counts the step as clipped (`clip_reason: "soc_terminal"`). So every
+trajectory the env allows ends at or above the target, which is exactly the
+constraint set the perfect-foresight program solves. Perfect foresight stays
+an exact upper bound with either setting.
 
 ## Battery and settlement
 
@@ -116,15 +156,34 @@ end-of-day SoC target, so no strategy gets free stored energy.
 
 ## Baselines
 
-1. **Perfect foresight**: solves each day with the true prices (linear
-   program; a MILP when needed to forbid charging and discharging at the same
-   time). This is the upper bound.
+1. **Perfect foresight**: solves each day with the true prices. This is the
+   upper bound and the denominator of the capture rate (see below for why it
+   sometimes needs integer programming).
 2. **Threshold rule**: charge when the last settled price is at or below a
    low quantile, discharge at or above a high quantile. Quantiles come from the
    training split only.
 3. **Forecast + MPC**: at each interval, forecast the rest of the day
    (persistence: same interval 24 hours earlier), solve the LP, apply the first
    action. Better forecasters plug in here.
+
+### Why the upper bound switches to integer programming at negative prices
+
+The usual linear program has separate charge and discharge variables, and
+nothing stops both from being positive in the same interval. At very
+negative prices that pays: charging and discharging at once burns energy
+through the efficiency losses, so the battery takes in more paid-for energy
+than it could store. A real battery has one net power, and so does this
+environment's action, so that schedule is physically impossible.
+
+Left in, it would make the "upper bound" too high and push down every
+strategy's capture rate. With 85% round-trip efficiency and $2/MWh
+degradation it pays below about −$25/MWh, and ERCOT real-time prices can
+fall that low.
+So the solver checks the LP solution, and if any interval charges and
+discharges at once, it re-solves as a mixed-integer program with one binary
+per interval (charge or discharge, not both). Both run on HiGHS and are
+deterministic. A test replays the schedule in the environment and checks
+that it earns exactly the optimizer's objective.
 
 ## Evaluation
 
@@ -152,6 +211,23 @@ rtcb_gym/baselines/         perfect foresight, threshold rule, forecast + MPC
 scripts/                    download_data.py, run_baselines.py
 tests/                      unit tests (synthetic prices only)
 ```
+
+## Related work
+
+General storage and power-system RL environments already exist. RTCB-Gym
+does not replace them. It narrows the scope to one market after one rule
+change: ERCOT after RTC+B, with settlement-level accounting, a tested
+no-look-ahead guarantee and an exact upper bound.
+
+- [energy-py](https://github.com/ADGEfficiency/energy-py): RL framework with
+  a Gymnasium battery-arbitrage environment on historical electricity prices,
+  integrated with Stable Baselines 3.
+- [Grid2Op](https://github.com/rte-france/Grid2Op) (RTE France): grid
+  operation and topology control, used for the L2RPN competitions.
+- [CityLearn](https://github.com/intelligent-environments-lab/CityLearn):
+  multi-agent building demand response and storage control.
+- [PowerGridworld](https://github.com/NREL/PowerGridworld) (NREL): framework
+  for building multi-agent power-system Gym environments.
 
 ## Roadmap
 
