@@ -202,3 +202,55 @@ def test_mpc_matches_perfect_foresight_with_end_target():
     upper = run_policy(env, PerfectForesight(p, CROSS_DAY))
     mpc = run_policy(env, ForecastMPC(CROSS_DAY, env.obs_layout))
     assert mpc.revenue_usd == pytest.approx(upper.revenue_usd, rel=1e-6)
+
+
+class ConstantAction(Policy):
+    """Request the same normalised action at every interval."""
+
+    def __init__(self, action):
+        self.action = float(action)
+        self.name = f"constant {self.action:+.1f}"
+
+    def act(self, obs, info):
+        return np.array([self.action])
+
+
+# The results table reports zero clipped actions for all three baselines.
+# These tests make sure that zero comes from the strategies, not from a
+# counter that never counts.
+
+
+@pytest.mark.parametrize(
+    "soc_init, action, reason",
+    [(1.0, -1.0, "soc_max"), (0.0, 1.0, "soc_min")],
+    ids=["charge_full_battery", "discharge_empty_battery"],
+)
+def test_clip_counter_counts_every_infeasible_request(soc_init, action, reason):
+    params = BatteryParams(soc_init=soc_init)
+    env = RTCBEnv(make_prices(), params)
+    env.reset(options={"day": env.days[0]})
+    _, _, _, _, info = env.step(np.array([action]))
+    assert info["clipped"] and info["clip_reason"] == reason
+
+    r = run_policy(env, ConstantAction(action))
+    assert r.n_steps > 0
+    assert r.n_clipped == r.n_steps  # nothing is ever feasible
+    assert r.revenue_usd == 0.0
+
+
+def test_clip_counter_reaches_the_results_table():
+    # From empty, charging at 100 MW stores 100 * 0.25 * sqrt(0.85) = 23.05 MWh
+    # per interval, so 8 intervals fit into 200 MWh. The 9th is cut short and
+    # every later one is refused: per day, all but 8 intervals are clipped.
+    params = BatteryParams(soc_init=0.0)
+    p = make_prices()
+    env = RTCBEnv(p, params)
+    r = run_policy(env, ConstantAction(-1.0))
+    expected = r.n_steps - 8 * r.n_days
+    assert 0 < expected < r.n_steps
+    assert r.n_clipped == expected
+
+    upper = run_policy(env, PerfectForesight(p, params))
+    row = metrics_row("test", r, upper, params.energy_mwh)
+    assert row["n_clipped"] == expected
+    assert markdown_table([row]).rstrip("\n").endswith(f"| {expected} |")

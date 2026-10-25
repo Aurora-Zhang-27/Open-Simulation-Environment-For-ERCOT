@@ -17,23 +17,27 @@ agent) under the same rules.
 
 ## Status
 
-v0.1: the first real-data run is complete.
+**v0.1.0**: real-time energy only, one hub (HB_WEST), three baselines, and
+results from the first real-data run.
 
 - **Done:** simulator, settlement, environment, three baselines and the data
-  pipeline. All 97 unit tests pass. They use synthetic prices only.
+  pipeline. All 100 unit tests pass. They use synthetic prices only.
 - **Real data downloaded once** (2026-10-25, gridstatusio 0.16.1): HB_WEST,
   operating days 2025-12-05 to 2026-10-24. The column mapping matches the
   live API response. The [cleaning report](#cleaning-report-first-download)
   found 4 missing intervals, no duplicates and no NaN prices. The
   [data checksum](#data-checksum) is published and set in
   `configs/default.yaml`. The [results table](#results) is filled in.
+- **Data terms:** GridStatus's terms of use claim ownership of the data, so
+  it is not committed here, and this README credits Grid Status as the
+  terms require.
 - **Not checked yet:**
   - The results come from one download on one machine. Nobody has
     reproduced the hash with an independent download yet.
   - The most recent days were downloaded one day after they happened. ERCOT
     can still correct real-time prices, so a later download may hash
     differently.
-  - GridStatus's terms for redistribution. The data is still not committed.
+  - The 4 gaps have not been checked against ERCOT's original reports.
   - Only HB_WEST has been run.
 
 ## Install
@@ -59,9 +63,13 @@ This downloads one calendar month at a time, caches the raw responses under
 `data/raw/` (so later runs work offline), cleans them and writes
 `data/processed/ercot_real_time_15_min_hb_west.parquet` and a gap report.
 
-**The data is not committed to this repository.** GridStatus is a hosted
-service that needs a key, and its terms have not been checked for
-redistribution. Download with your own key instead, then check the data
+**Data provided by [Grid Status](https://www.gridstatus.io).** Their terms
+of use require this credit wherever their data is used, so keep it if you
+publish results built on this data.
+
+**The data is not committed to this repository.** GridStatus's terms of use
+claim ownership of the data and treat it as their trade secret, so it is not
+redistributed here. Download with your own key instead, then check the data
 against the checksum below.
 
 Cleaning rules:
@@ -109,6 +117,9 @@ Downloaded 2026-10-25 with gridstatusio 0.16.1.
   2026-01-08 15:30, 2026-06-04 15:30, 2026-07-09 15:30 and 2026-08-27 10:30
   (US/Central start time). Re-querying a narrow window around each gap also
   returned no row, so the gaps are in the source data, not a paging problem.
+- Three of the four gaps are at 15:30 local time, in both CST and CDT. That
+  does not look random. It may come from how GridStatus loads the data. The
+  gaps have not been checked against ERCOT's original NP6-905-CD reports yet.
 - The DST day 2026-03-08 has 92 intervals, as expected.
 - Prices range from −$31.62 to $1,522.50/MWh, median $24.50/MWh.
 
@@ -125,7 +136,8 @@ It prints the data hash and a markdown table, and writes
 
 HB_WEST, data SHA-256 `a588daed…80009d0` (full value in the
 [checksum table](#data-checksum)). Also in `results/baselines.md`, with full
-numbers in `results/baselines.json`.
+numbers in `results/baselines.json`. Data provided by
+[Grid Status](https://www.gridstatus.io).
 
 | Split | Strategy | Days | Revenue (USD) | Capture rate | Cycles/day | Clipped actions |
 |---|---|---:|---:|---:|---:|---:|
@@ -146,6 +158,26 @@ Every day starts empty, with no end target.
   $15.65/MWh and discharges at or above $30.91/MWh (quantiles 0.4 / 0.7).
 - **Perfect foresight:** replaying its schedule in the environment earned
   the optimizer's objective (within 1e-6 relative) on both splits.
+- **Clipped actions are 0 by design.** All three baselines check the SoC
+  limits before they act. Tests check that the counter does count: a full
+  battery told to charge is clipped at every interval.
+
+### What the numbers show
+
+- **The threshold rule drops from 22.7% (validation) to 14.4% (test).** Its
+  thresholds come from December–June training prices. Test prices sit
+  higher: median $32.14/MWh against $21.40 in training. 53% of test
+  intervals are at or above the discharge threshold (30% in training), and
+  only 14% are at or below the charge threshold (40% in training). As a
+  diagnostic only, since it looks ahead: refitting the same rule on each
+  split's own prices gives 34.6% on validation and 34.8% on test. So the
+  drop comes from stale thresholds, not from the form of the rule. A static
+  rule fitted once does not keep up with a shifting price distribution. That
+  is a clear target for adaptive strategies.
+- **The upper bound is higher on test than on validation** (about $157
+  against $102 per MW per day). The five late-August test days average
+  $33.7k/day. September and October still average $14.1k/day, against
+  $10.2k/day on validation, where July is the quietest month ($7.4k/day).
 
 ## Usage
 
@@ -289,7 +321,7 @@ no-look-ahead guarantee and an exact upper bound.
 | Version | Content |
 |---|---|
 | **v0.1** | real-time energy, three baselines, results table |
-| v0.2 | day-ahead market and two-settlement |
+| v0.2 | day-ahead market and two-settlement; threshold rule refitted on a rolling 30-day window |
 | v0.5 | real-time ancillary services co-optimized with energy |
 | v1.0 | stress-scenario generator, validated against held-out data |
 | v1.x | better forecasters, risk guardrails |
