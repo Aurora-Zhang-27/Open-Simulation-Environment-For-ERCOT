@@ -19,7 +19,7 @@ data:
   sleep_sec: 2                    # pause between API calls
   # SHA-256 of the cleaned data behind the published results (see README).
   # download_data.py fails if your download hashes differently.
-  expected_sha256: null           # filled in after the first full download
+  expected_sha256: a588daed478fc7dbba60aa144e264fb4ce49c92845188214dea43596a80009d0  # HB_WEST, 2025-12-05 .. 2026-10-24
 
 battery:
   power_mw: 100.0

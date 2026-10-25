@@ -17,15 +17,24 @@ agent) under the same rules.
 
 ## Status
 
-v0.1 is in progress.
+v0.1: the first real-data run is complete.
 
 - **Done:** simulator, settlement, environment, three baselines and the data
-  pipeline. All unit tests pass. They use synthetic prices only.
-- **Not done: no real data has been downloaded yet** (see
-  [Get the data](#get-the-data)). So the gridstatusio column mapping has not
-  been checked against a live API response, there is no cleaning report, the
-  [data checksum](#data-checksum) is empty, and the [results table](#results)
-  is not filled in.
+  pipeline. All 97 unit tests pass. They use synthetic prices only.
+- **Real data downloaded once** (2026-10-25, gridstatusio 0.16.1): HB_WEST,
+  operating days 2025-12-05 to 2026-10-24. The column mapping matches the
+  live API response. The [cleaning report](#cleaning-report-first-download)
+  found 4 missing intervals, no duplicates and no NaN prices. The
+  [data checksum](#data-checksum) is published and set in
+  `configs/default.yaml`. The [results table](#results) is filled in.
+- **Not checked yet:**
+  - The results come from one download on one machine. Nobody has
+    reproduced the hash with an independent download yet.
+  - The most recent days were downloaded one day after they happened. ERCOT
+    can still correct real-time prices, so a later download may hash
+    differently.
+  - GridStatus's terms for redistribution. The data is still not committed.
+  - Only HB_WEST has been run.
 
 ## Install
 
@@ -61,7 +70,9 @@ Cleaning rules:
   have 92 or 100 intervals.
 - Exact duplicate rows are dropped. Duplicates with different prices stop the
   run.
-- **Gaps are reported, never filled.** Days with gaps are left out of episodes.
+- **Gaps are reported, never filled.** Days with gaps are left out of
+  episodes, and so is the day after each one (its price history is not
+  contiguous).
 
 ### Data checksum
 
@@ -73,11 +84,33 @@ results table.
 
 | Hub | Operating days | SHA-256 of cleaned data |
 |---|---|---|
-| HB_WEST | 2025-12-05 .. 2026-10-24 | *pending first download* |
+| HB_WEST | 2025-12-05 .. 2026-10-24 | `a588daed478fc7dbba60aa144e264fb4ce49c92845188214dea43596a80009d0` |
 
-Put the published value in `data.expected_sha256` in the config and
-`download_data.py` will fail on a mismatch. A mismatch can also mean the
+This value is already in `data.expected_sha256` in `configs/default.yaml`,
+so `download_data.py` fails on a mismatch. A mismatch can also mean the
 source revised some prices after publication.
+
+### Cleaning report (first download)
+
+Downloaded 2026-10-25 with gridstatusio 0.16.1.
+
+| | |
+|---|---:|
+| Raw rows | 31,096 |
+| Intervals expected | 31,100 |
+| Intervals present | 31,096 |
+| Missing intervals (not filled) | 4 |
+| Exact duplicates | 0 |
+| Conflicting duplicates | 0 |
+| NaN prices | 0 |
+| Other locations / outside date range | 0 / 0 |
+
+- Each missing interval is one 15-minute interval on a different day:
+  2026-01-08 15:30, 2026-06-04 15:30, 2026-07-09 15:30 and 2026-08-27 10:30
+  (US/Central start time). Re-querying a narrow window around each gap also
+  returned no row, so the gaps are in the source data, not a paging problem.
+- The DST day 2026-03-08 has 92 intervals, as expected.
+- Prices range from −$31.62 to $1,522.50/MWh, median $24.50/MWh.
 
 ## Reproduce the results table
 
@@ -90,13 +123,29 @@ It prints the data hash and a markdown table, and writes
 
 ## Results
 
-*Not generated yet: waiting for the first data download.*
+HB_WEST, data SHA-256 `a588daed…80009d0` (full value in the
+[checksum table](#data-checksum)). Also in `results/baselines.md`, with full
+numbers in `results/baselines.json`.
 
 | Split | Strategy | Days | Revenue (USD) | Capture rate | Cycles/day | Clipped actions |
 |---|---|---:|---:|---:|---:|---:|
-| validation / test | Perfect foresight, Threshold rule, Forecast + MPC | — | — | — | — | — |
+| validation | Perfect foresight | 53 | 538,640 | 100.0% | 1.39 | 0 |
+| validation | Threshold rule | 53 | 122,064 | 22.7% | 0.46 | 0 |
+| validation | Forecast + MPC | 53 | 267,207 | 49.6% | 1.38 | 0 |
+| test | Perfect foresight | 59 | 929,058 | 100.0% | 1.75 | 0 |
+| test | Threshold rule | 59 | 133,541 | 14.4% | 0.38 | 0 |
+| test | Forecast + MPC | 59 | 435,338 | 46.9% | 1.73 | 0 |
 
 Battery: 100 MW / 200 MWh, 85% round-trip efficiency, $2/MWh degradation cost.
+Every day starts empty, with no end target.
+
+- **Days left out:** each day with a missing interval, and the day after it
+  (its 96-interval price history is not contiguous). Validation leaves out
+  2026-07-09 and 2026-07-10, test leaves out 2026-08-27 and 2026-08-28.
+- **Threshold rule:** fitted on the training split. It charges at or below
+  $15.65/MWh and discharges at or above $30.91/MWh (quantiles 0.4 / 0.7).
+- **Perfect foresight:** replaying its schedule in the environment earned
+  the optimizer's objective (within 1e-6 relative) on both splits.
 
 ## Usage
 
