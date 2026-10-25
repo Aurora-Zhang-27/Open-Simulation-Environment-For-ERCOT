@@ -1,0 +1,48 @@
+# RTCB-Gym v0.1 default configuration.
+# Switching hub or date range should only require editing this file.
+
+market:
+  iso: ERCOT
+  market: REAL_TIME_15_MIN        # 15-minute real-time Settlement Point Prices (SPP)
+  location: HB_WEST               # trading hub; alternative: HB_HOUSTON
+  timezone: US/Central            # ERCOT operating days are in Central Prevailing Time
+  # RTC+B went live on Operating Day 2025-12-05. Earlier data comes from a
+  # different market design and must never be mixed in (enforced in code).
+  start_date: "2025-12-05"        # first operating day, inclusive
+  end_date: "2026-10-24"          # last operating day, inclusive
+
+data:
+  provider: gridstatusio          # hosted GridStatus API; needs GRIDSTATUS_API_KEY
+  dataset: ercot_spp_real_time_15_min
+  raw_dir: data/raw               # download cache (git-ignored)
+  processed_dir: data/processed   # cleaned parquet, one file per location
+  sleep_sec: 2                    # pause between API calls
+
+battery:
+  power_mw: 100.0
+  energy_mwh: 200.0
+  rte: 0.85                       # round-trip; split as sqrt(rte) on charge and on discharge
+  soc_min: 0.0                    # fractions of energy_mwh
+  soc_max: 1.0
+  soc_init: 0.0                   # every episode starts empty (see README)
+  degradation_cost_usd_per_mwh: 2.0
+
+env:
+  episode_days: 1                 # one operating day = 96 intervals (92/100 on DST days)
+  history_len: 96                 # last N settled RT prices in the observation
+  dt_hours: 0.25
+
+# Time-based split by operating day (inclusive). Never random.
+# Test = the most recent ~2 months.
+splits:
+  train: ["2025-12-05", "2026-06-30"]
+  validation: ["2026-07-01", "2026-08-24"]
+  test: ["2026-08-25", "2026-10-24"]
+
+baselines:
+  threshold_rule:
+    # Candidate price quantiles, fitted on the training split only.
+    low_quantiles: [0.1, 0.2, 0.3, 0.4]
+    high_quantiles: [0.6, 0.7, 0.8, 0.9]
+  forecast_mpc:
+    forecast: persistence_24h     # same interval 24 hours earlier
