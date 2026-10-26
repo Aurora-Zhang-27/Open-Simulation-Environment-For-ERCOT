@@ -1,0 +1,10 @@
+# Same as default.yaml, at the Houston hub.
+#   python scripts/download_data.py --config configs/hb_houston.yaml
+#   python scripts/run_baselines.py --config configs/hb_houston.yaml
+extends: default.yaml
+
+market:
+  location: HB_HOUSTON
+
+data:
+  expected_sha256: ea27b7861e6210514264b51dfed49ab1cd7168ff4b5b693dcbd130dee9750c00  # HB_HOUSTON, 2025-12-05 .. 2026-10-24
