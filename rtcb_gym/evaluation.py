@@ -134,6 +134,11 @@ def metrics_row(split: str, result: RunResult, upper: RunResult, energy_mwh: flo
     }
 
 
+def _usd(x: float) -> str:
+    """Whole dollars with thousands separators; round-off never shows as -0."""
+    return f"{round(x) + 0:,}"
+
+
 def markdown_table(rows: list[dict[str, Any]], two_settlement: bool = False) -> str:
     """Results table. ``two_settlement`` adds the day-ahead and real-time
     settlement columns (net revenue = DA + RT - degradation)."""
@@ -142,7 +147,7 @@ def markdown_table(rows: list[dict[str, Any]], two_settlement: bool = False) -> 
         lines = [header, "|---|---|---:|---:|---:|---:|---:|"]
         for r in rows:
             lines.append(
-                f"| {r['split']} | {r['policy']} | {r['days']} | {r['revenue_usd']:,.0f} | "
+                f"| {r['split']} | {r['policy']} | {r['days']} | {_usd(r['revenue_usd'])} | "
                 f"{r['capture_rate']:.1%} | {r['efc_per_day']:.2f} | {r['n_clipped']} |"
             )
         return "\n".join(lines)
@@ -154,8 +159,8 @@ def markdown_table(rows: list[dict[str, Any]], two_settlement: bool = False) -> 
     for r in rows:
         clipped = f"{r['n_clipped']}" + (f" + {r['n_da_clipped_hours']} DA h" if r["n_da_clipped_hours"] else "")
         lines.append(
-            f"| {r['split']} | {r['policy']} | {r['days']} | {r['revenue_usd']:,.0f} | "
-            f"{r['da_revenue_usd']:,.0f} | {r['rt_revenue_usd']:,.0f} | "
+            f"| {r['split']} | {r['policy']} | {r['days']} | {_usd(r['revenue_usd'])} | "
+            f"{_usd(r['da_revenue_usd'])} | {_usd(r['rt_revenue_usd'])} | "
             f"{r['capture_rate']:.1%} | {r['efc_per_day']:.2f} | {clipped} |"
         )
     return "\n".join(lines)

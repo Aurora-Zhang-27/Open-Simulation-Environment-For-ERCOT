@@ -369,3 +369,20 @@ def test_two_settlement_table_format(rt, da):
     upper = run_policy(env, PerfectForesightTwoSettlement(rt, da, PARAMS))
     table = markdown_table([metrics_row("test", upper, upper, PARAMS.energy_mwh)], two_settlement=True)
     assert "DA settlement" in table and "| test | Perfect foresight (DA + RT) | 1 |" in table
+
+
+def test_day_ahead_only_bound_replays_and_bounds_delivered_schedules(rt, da):
+    from rtcb_gym.baselines import PerfectForesightDayAhead
+
+    env = env2s(rt, da, sample="sequential")
+    bound = PerfectForesightDayAhead(da, PARAMS, env.obs_layout)
+    r = run_policy(env, bound)
+    assert r.revenue_usd == pytest.approx(bound.planned_revenue_usd, rel=1e-6)
+    assert abs(r.rt_revenue_usd) < 1e-6 and r.n_clipped == 0
+    assert run_policy(env, DayAheadSchedule(PARAMS, env.obs_layout)).revenue_usd <= r.revenue_usd + 1e-6
+
+
+def test_table_never_shows_minus_zero():
+    from rtcb_gym.evaluation import _usd
+
+    assert _usd(-1e-9) == "0" and _usd(-0.4) == "0" and _usd(1234.6) == "1,235" and _usd(-2500.2) == "-2,500"

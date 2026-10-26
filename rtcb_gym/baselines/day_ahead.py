@@ -7,6 +7,11 @@ Perfect foresight (DA + RT)
     the award on the true spread (no degradation: the award is a financial
     position), the dispatch on the true real-time prices.
 
+Perfect foresight (DA only, delivered)
+    Solves the battery schedule on the true day-ahead prices and delivers
+    the award exactly. The upper bound for strategies that only use the
+    day-ahead market.
+
 DA schedule, delivered
     Forecast tomorrow's day-ahead prices with today's (persistence), solve
     the battery schedule on that forecast, bid it, and deliver exactly the
@@ -99,6 +104,31 @@ class DayAheadSchedule(Policy):
     def act(self, obs: np.ndarray, info: dict[str, Any]) -> np.ndarray:
         # deliver the award of the current interval (stored as award / power_mw)
         return np.array([obs[self.layout["da_award_ahead"]][0]])
+
+
+class PerfectForesightDayAhead(DayAheadSchedule):
+    name = "Perfect foresight (DA only, delivered)"
+
+    def __init__(self, da_prices: pd.DataFrame, params: BatteryParams, obs_layout: dict[str, slice]) -> None:
+        da = da_prices.sort_values("interval_start_utc")
+        true = pd.Series(
+            da["price_usd_per_mwh"].to_numpy(dtype=np.float64),
+            index=pd.DatetimeIndex(da["interval_start_utc"]).as_unit("ns"),
+        )
+
+        def true_prices(context: DayAheadContext) -> np.ndarray:  # privileged: the day's own prices
+            values = true.reindex(context.hour_start_utc).to_numpy()
+            if np.isnan(values).any():
+                raise ValueError(f"true day-ahead prices for {context.operating_day} not found")
+            return values
+
+        super().__init__(params, obs_layout, forecaster=true_prices)
+        self.planned_revenue_usd = 0.0
+
+    def plan(self, context: DayAheadContext) -> np.ndarray:
+        plan = solve_dispatch(self.forecaster(context), context.battery, context.soc_init, DA_DT_HOURS)
+        self.planned_revenue_usd += plan.revenue_usd
+        return plan.power_mw
 
 
 class DayAheadForecastMPC(ForecastMPC):

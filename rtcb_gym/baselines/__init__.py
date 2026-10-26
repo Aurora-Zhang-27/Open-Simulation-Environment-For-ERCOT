@@ -5,6 +5,7 @@ from rtcb_gym.baselines.day_ahead import (
     DayAheadForecastMPC,
     DayAheadPlusMPC,
     DayAheadSchedule,
+    PerfectForesightDayAhead,
     PerfectForesightTwoSettlement,
 )
 from rtcb_gym.baselines.forecast_mpc import ForecastMPC, persistence_24h
@@ -24,6 +25,7 @@ __all__ = [
     "DispatchPlan",
     "ForecastMPC",
     "PerfectForesight",
+    "PerfectForesightDayAhead",
     "PerfectForesightTwoSettlement",
     "Policy",
     "RollingThresholdRule",
