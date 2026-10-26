@@ -52,5 +52,13 @@ baselines:
     # Candidate price quantiles, fitted on the training split only.
     low_quantiles: [0.1, 0.2, 0.3, 0.4]
     high_quantiles: [0.6, 0.7, 0.8, 0.9]
+  rolling_threshold:
+    # Same rule, thresholds refitted before every day on the previous
+    # window_days days of settled prices. The quantile pair is chosen by
+    # training-split revenue only.
+    window_days: 30
+    min_window_days: 7            # fewer days of history: stay idle that day
+    low_quantiles: [0.1, 0.2, 0.3, 0.4]
+    high_quantiles: [0.6, 0.7, 0.8, 0.9]
   forecast_mpc:
     forecast: persistence_24h     # same interval 24 hours earlier

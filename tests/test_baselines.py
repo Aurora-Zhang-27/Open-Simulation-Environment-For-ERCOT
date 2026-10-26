@@ -1,6 +1,7 @@
 """Baselines and the dispatch optimiser."""
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from conftest import make_prices
@@ -8,7 +9,9 @@ from rtcb_gym.baselines import (
     ForecastMPC,
     PerfectForesight,
     Policy,
+    RollingThresholdRule,
     ThresholdRule,
+    fit_rolling_threshold_rule,
     fit_threshold_rule,
     persistence_24h,
     solve_dispatch,
@@ -254,3 +257,83 @@ def test_clip_counter_reaches_the_results_table():
     row = metrics_row("test", r, upper, params.energy_mwh)
     assert row["n_clipped"] == expected
     assert markdown_table([row]).rstrip("\n").endswith(f"| {expected} |")
+
+
+# --------------------------------------------------------------------------
+# Rolling threshold rule
+
+
+def day_indexed_prices(days=40, start="2026-03-01"):
+    """Synthetic prices where every interval of day k costs k USD/MWh, plus a
+    small intraday shape so quantiles differ within a day."""
+    p = make_prices(start=start, days=days, seed=None)
+    day = p["local_time"].dt.date
+    k = (pd.to_datetime(day) - pd.Timestamp(start)).dt.days.to_numpy()
+    p["price_usd_per_mwh"] = k + 0.01 * (p["price_usd_per_mwh"] - 30.0)
+    return p
+
+
+def test_rolling_window_is_the_previous_n_days_only():
+    p = day_indexed_prices()
+    rule = RollingThresholdRule(p, 0.2, 0.8, DEFAULT, {}, window_days=30)
+    day = pd.Timestamp("2026-04-05").date()  # day index 35
+    window = rule.window_prices(day)
+    day_index = np.round(window).astype(int)
+    assert day_index.min() == 5 and day_index.max() == 34  # days 35-30 .. 35-1
+    assert len(window) == 30 * 96 - 4  # one DST spring-forward day in the window
+
+
+def test_rolling_rule_never_reads_the_episode_or_later_prices():
+    p = make_prices(days=40)
+    env = RTCBEnv(p, DEFAULT, days=["2026-04-02", "2026-04-03"], sample="sequential")
+    changed = p.copy()
+    late = changed["local_time"].dt.date >= pd.Timestamp("2026-04-02").date()
+    changed.loc[late, "price_usd_per_mwh"] += 1000.0
+    runs = []
+    for table in (p, changed):
+        rule = RollingThresholdRule(table, 0.3, 0.7, DEFAULT, env.obs_layout, window_days=30)
+        runs.append((run_policy(env, rule, days=[env.days[0]]), rule.history))
+    (a, ha), (b, hb) = runs
+    assert ha == hb  # same thresholds for 2026-04-02
+    assert a.daily_revenue_usd == b.daily_revenue_usd
+
+
+def test_rolling_rule_idles_without_enough_history():
+    p = make_prices(days=10)
+    env = RTCBEnv(p, DEFAULT, days=["2026-03-04"])
+    rule = RollingThresholdRule(p, 0.3, 0.7, DEFAULT, env.obs_layout, window_days=30, min_window_days=7)
+    r = run_policy(env, rule)
+    assert rule.history[0]["low_price"] == -np.inf and rule.history[0]["high_price"] == np.inf
+    assert r.storage_discharge_mwh == 0.0 and r.revenue_usd == 0.0 and r.n_clipped == 0
+
+
+def test_rolling_rule_follows_a_level_shift():
+    p = make_prices(days=60, seed=1)
+    shifted = p["local_time"].dt.date >= pd.Timestamp("2026-03-31").date()
+    p.loc[shifted, "price_usd_per_mwh"] += 50.0
+    env = RTCBEnv(p, DEFAULT, days=["2026-03-20", "2026-04-28"], sample="sequential")
+    rule = RollingThresholdRule(p, 0.3, 0.7, DEFAULT, env.obs_layout, window_days=14)
+    r = run_policy(env, rule)
+    before, after = rule.history
+    assert after["low_price"] - before["low_price"] == pytest.approx(50.0, abs=10.0)
+    assert after["high_price"] - before["high_price"] == pytest.approx(50.0, abs=10.0)
+    assert r.n_clipped == 0  # requests stay feasible, like the static rule
+
+
+def test_fit_rolling_threshold_picks_the_best_training_pair():
+    p = make_prices(days=30)
+    days = [d for d in pd.date_range("2026-03-12", "2026-03-20").date]
+    env = RTCBEnv(p, DEFAULT, days=days, sample="sequential")
+    rule, table = fit_rolling_threshold_rule(env, p, [0.1, 0.3], [0.7, 0.9], window_days=7, min_window_days=3)
+    best = max(table, key=lambda row: row["train_revenue_usd"])
+    assert (rule.low_q, rule.high_q) == (best["low_q"], best["high_q"])
+    assert len(table) == 4 and rule.name == "Rolling threshold (7 d)"
+    assert rule.history == []  # a fresh rule, not one used during the search
+
+
+def test_rolling_rule_rejects_bad_arguments():
+    p = make_prices(days=3)
+    with pytest.raises(ValueError):
+        RollingThresholdRule(p, 0.7, 0.3, DEFAULT, {})
+    with pytest.raises(ValueError):
+        RollingThresholdRule(p, 0.3, 0.7, DEFAULT, {}, window_days=5, min_window_days=6)
