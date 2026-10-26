@@ -86,7 +86,19 @@ def main() -> None:
 
     out_dir = resolve_path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "baselines.md").write_text(table + "\n")
+    b = cfg["battery"]
+    md = "\n".join([
+        f"# RTCB-Gym baselines: {m['location']}, real-time energy",
+        "",
+        f"Operating days {m['start_date']} .. {m['end_date']}, data SHA-256 `{digest}`.",
+        f"Battery: {b['power_mw']:g} MW / {b['energy_mwh']:g} MWh, "
+        f"{b['rte']:.0%} round-trip efficiency, ${b['degradation_cost_usd_per_mwh']:g}/MWh degradation cost.",
+        "",
+        table,
+        "",
+        "Data provided by [Grid Status](https://www.gridstatus.io).",
+    ])
+    (out_dir / "baselines.md").write_text(md + "\n")
     payload = {
         "config": cfg,
         "data_sha256": digest,

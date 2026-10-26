@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+# The workflow only installs the package and runs pytest.
+permissions:
+  contents: read
+
 jobs:
   pytest:
     runs-on: ubuntu-latest
