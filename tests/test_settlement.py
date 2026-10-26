@@ -3,7 +3,7 @@
 import pytest
 
 from rtcb_gym.battery import Battery, BatteryParams, battery_step
-from rtcb_gym.settlement import settle_real_time
+from rtcb_gym.settlement import settle_real_time, settle_two_settlement
 
 DT = 0.25
 
@@ -83,3 +83,44 @@ def test_bad_inputs():
         settle_real_time(1.0, 0.0, 10.0)
     with pytest.raises(ValueError):
         settle_real_time(1.0, DT, 10.0, -1.0)
+
+
+# --------------------------------------------------------------------------
+# Two-settlement
+
+
+def test_two_settlement_hand_example():
+    # Sold 80 MW day-ahead at $50, delivered only 60 MW in real time at $90:
+    # DA 80 * 0.25 * 50 = 1000; RT buys back 20 MW: -20 * 0.25 * 90 = -450.
+    s = settle_two_settlement(60.0, 80.0, 0.25, 90.0, 50.0, degradation_cost_usd_per_mwh=2.0)
+    assert s.da_revenue_usd == pytest.approx(1000.0)
+    assert s.rt_revenue_usd == pytest.approx(-450.0)
+    assert s.energy_revenue_usd == pytest.approx(550.0)
+    assert s.degradation_cost_usd == pytest.approx(60 * 0.25 * 2.0)  # on delivered power only
+    assert s.net_revenue_usd == pytest.approx(550.0 - 30.0)
+
+
+def test_two_settlement_delivering_the_award_earns_the_day_ahead_price():
+    s = settle_two_settlement(-40.0, -40.0, 0.25, 999.0, 20.0)
+    assert s.rt_revenue_usd == 0.0
+    assert s.energy_revenue_usd == pytest.approx(-40 * 0.25 * 20.0)
+
+
+def test_two_settlement_without_award_equals_real_time_only():
+    a = settle_two_settlement(75.0, 0.0, 0.25, 42.0, 10.0, degradation_cost_usd_per_mwh=2.0)
+    b = settle_real_time(75.0, 0.25, 42.0, degradation_cost_usd_per_mwh=2.0)
+    assert a.to_dict() == b.to_dict()
+
+
+def test_two_settlement_position_without_delivery_is_a_spread_bet():
+    # 50 MW sold day-ahead, battery idle: earns (DA - RT) on 50 MW, no degradation.
+    s = settle_two_settlement(0.0, 50.0, 0.25, 30.0, 45.0, degradation_cost_usd_per_mwh=2.0)
+    assert s.net_revenue_usd == pytest.approx(50 * 0.25 * (45.0 - 30.0))
+    assert s.degradation_cost_usd == 0.0
+
+
+def test_two_settlement_bad_inputs():
+    with pytest.raises(ValueError):
+        settle_two_settlement(0.0, 0.0, 0.25, 10.0, float("nan"))
+    with pytest.raises(ValueError):
+        settle_two_settlement(0.0, float("inf"), 0.25, 10.0, 10.0)

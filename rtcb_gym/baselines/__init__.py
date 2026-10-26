@@ -1,6 +1,12 @@
 """Baseline strategies."""
 
 from rtcb_gym.baselines.base import Policy
+from rtcb_gym.baselines.day_ahead import (
+    DayAheadForecastMPC,
+    DayAheadPlusMPC,
+    DayAheadSchedule,
+    PerfectForesightTwoSettlement,
+)
 from rtcb_gym.baselines.forecast_mpc import ForecastMPC, persistence_24h
 from rtcb_gym.baselines.optimize import DispatchPlan, solve_dispatch
 from rtcb_gym.baselines.perfect_foresight import PerfectForesight
@@ -12,9 +18,13 @@ from rtcb_gym.baselines.threshold_rule import (
 )
 
 __all__ = [
+    "DayAheadForecastMPC",
+    "DayAheadPlusMPC",
+    "DayAheadSchedule",
     "DispatchPlan",
     "ForecastMPC",
     "PerfectForesight",
+    "PerfectForesightTwoSettlement",
     "Policy",
     "RollingThresholdRule",
     "ThresholdRule",

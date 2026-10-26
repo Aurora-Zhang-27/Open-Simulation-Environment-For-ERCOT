@@ -58,10 +58,14 @@ class ForecastMPC(Policy):
         self.forecaster = forecaster
         self.max_horizon = max_horizon
 
+    def forecast(self, obs: np.ndarray, horizon: int) -> np.ndarray:
+        """Prices for intervals t .. t+horizon-1, from the observation only."""
+        return self.forecaster(obs[self.layout["prices"]], horizon)
+
     def act(self, obs: np.ndarray, info: dict[str, Any]) -> np.ndarray:
         steps_left = int(info["steps_remaining"])
         horizon = min(steps_left, self.max_horizon)
-        forecast = self.forecaster(obs[self.layout["prices"]], horizon)
+        forecast = self.forecast(obs, horizon)
         soc = float(obs[self.layout["soc"]][0])
         # If the horizon stops before the episode ends, only require the SoC
         # from which the end target is still reachable.

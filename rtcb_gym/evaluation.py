@@ -6,6 +6,11 @@ Metrics
     efc_per_day     equivalent full cycles per day: storage-side energy
                     discharged / energy_mwh / days
     n_clipped       intervals where the requested action was clipped
+
+Two-settlement runs also report the day-ahead settlement (award x DA price)
+and the real-time settlement (deviation x RT price) separately, and the
+number of day-ahead hours that had to be clipped to what the battery could
+deliver.
 """
 
 from __future__ import annotations
@@ -34,6 +39,9 @@ class RunResult:
     degradation_cost_usd: float = 0.0
     storage_discharge_mwh: float = 0.0
     n_clipped: int = 0
+    da_revenue_usd: float = 0.0  # day-ahead settlement
+    rt_revenue_usd: float = 0.0  # real-time settlement (all of energy revenue without a DA position)
+    n_da_clipped_hours: int = 0
     daily_revenue_usd: list[float] = field(default_factory=list)
 
     def efc_per_day(self, energy_mwh: float) -> float:
@@ -44,10 +52,20 @@ class RunResult:
 
 
 def run_policy(env: RTCBEnv, policy: Policy, days: list[dt.date] | None = None) -> RunResult:
-    """Run ``policy`` on each episode start day in order (default: all env days)."""
+    """Run ``policy`` on each episode start day in order (default: all env days).
+
+    In a two-settlement env the policy's ``day_ahead`` is asked first, with
+    the context of that day's day-ahead decision.
+    """
     result = RunResult(policy=policy.name)
     for day in days if days is not None else env.days:
-        obs, info = env.reset(options={"day": day})
+        options: dict[str, Any] = {"day": day}
+        if env.two_settlement:
+            schedule = policy.day_ahead(env.day_ahead_context(day))
+            if schedule is not None:
+                options["da_schedule"] = schedule
+        obs, info = env.reset(options=options)
+        result.n_da_clipped_hours += int(info.get("da_clipped_hours", 0))
         policy.reset(obs, info)
         day_revenue = 0.0
         terminated = False
@@ -56,6 +74,8 @@ def run_policy(env: RTCBEnv, policy: Policy, days: list[dt.date] | None = None) 
             day_revenue += reward
             result.n_steps += 1
             result.energy_revenue_usd += info["energy_revenue_usd"]
+            result.da_revenue_usd += info["da_revenue_usd"]
+            result.rt_revenue_usd += info["rt_revenue_usd"]
             result.degradation_cost_usd += info["degradation_cost_usd"]
             result.storage_discharge_mwh += info["storage_discharge_mwh"]
             result.n_clipped += int(info["clipped"])
@@ -107,15 +127,35 @@ def metrics_row(split: str, result: RunResult, upper: RunResult, energy_mwh: flo
         "capture_rate": capture,
         "efc_per_day": result.efc_per_day(energy_mwh),
         "n_clipped": result.n_clipped,
+        "da_revenue_usd": result.da_revenue_usd,
+        "rt_revenue_usd": result.rt_revenue_usd,
+        "degradation_cost_usd": result.degradation_cost_usd,
+        "n_da_clipped_hours": result.n_da_clipped_hours,
     }
 
 
-def markdown_table(rows: list[dict[str, Any]]) -> str:
-    header = "| Split | Strategy | Days | Revenue (USD) | Capture rate | Cycles/day | Clipped actions |"
-    lines = [header, "|---|---|---:|---:|---:|---:|---:|"]
+def markdown_table(rows: list[dict[str, Any]], two_settlement: bool = False) -> str:
+    """Results table. ``two_settlement`` adds the day-ahead and real-time
+    settlement columns (net revenue = DA + RT - degradation)."""
+    if not two_settlement:
+        header = "| Split | Strategy | Days | Revenue (USD) | Capture rate | Cycles/day | Clipped actions |"
+        lines = [header, "|---|---|---:|---:|---:|---:|---:|"]
+        for r in rows:
+            lines.append(
+                f"| {r['split']} | {r['policy']} | {r['days']} | {r['revenue_usd']:,.0f} | "
+                f"{r['capture_rate']:.1%} | {r['efc_per_day']:.2f} | {r['n_clipped']} |"
+            )
+        return "\n".join(lines)
+    header = (
+        "| Split | Strategy | Days | Revenue (USD) | DA settlement | RT settlement | "
+        "Capture rate | Cycles/day | Clipped actions |"
+    )
+    lines = [header, "|---|---|---:|---:|---:|---:|---:|---:|---:|"]
     for r in rows:
+        clipped = f"{r['n_clipped']}" + (f" + {r['n_da_clipped_hours']} DA h" if r["n_da_clipped_hours"] else "")
         lines.append(
             f"| {r['split']} | {r['policy']} | {r['days']} | {r['revenue_usd']:,.0f} | "
-            f"{r['capture_rate']:.1%} | {r['efc_per_day']:.2f} | {r['n_clipped']} |"
+            f"{r['da_revenue_usd']:,.0f} | {r['rt_revenue_usd']:,.0f} | "
+            f"{r['capture_rate']:.1%} | {r['efc_per_day']:.2f} | {clipped} |"
         )
     return "\n".join(lines)

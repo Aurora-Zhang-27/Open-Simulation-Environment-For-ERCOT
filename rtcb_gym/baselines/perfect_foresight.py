@@ -29,7 +29,7 @@ class PerfectForesight(Policy):
         self.dt_hours = dt_hours
         self._plan = np.zeros(0)
         self._k = 0
-        self.planned_revenue_usd = 0.0  # sum of LP objectives, for checking the env replay
+        self.planned_revenue_usd = 0.0  # sum of real-time LP objectives, for checking the env replay
 
     def reset(self, obs: np.ndarray, info: dict[str, Any]) -> None:
         start_ns = pd.Timestamp(info["interval_start_utc"]).as_unit("ns").value
