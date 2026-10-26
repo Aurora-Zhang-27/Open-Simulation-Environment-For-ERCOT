@@ -217,3 +217,60 @@ def test_checksum_survives_parquet_round_trip_and_detects_changes(tmp_path):
     changed = df.copy()
     changed.loc[100, "price_usd_per_mwh"] += 0.01
     assert store.data_sha256(changed) != digest
+
+
+# --------------------------------------------------------------------------
+# Hourly day-ahead prices
+
+
+def test_clean_day_ahead_hourly_handles_both_dst_days():
+    from conftest import make_da_prices
+
+    for start, lengths in (("2026-03-07", [24, 23, 24]), ("2026-10-31", [24, 25, 24])):
+        p = make_da_prices(start=start, days=3)
+        end = (pd.Timestamp(start) + pd.Timedelta(days=2)).date()
+        df, report = clean_prices(
+            raw_from(p), "HB_WEST", start, end, market="DAY_AHEAD_HOURLY", interval=clean.DA_INTERVAL
+        )
+        assert report.n_missing_intervals == 0 and report.n_expected_intervals == sum(lengths)
+        assert df.groupby(df["local_time"].dt.date).size().tolist() == lengths
+        assert intervals_per_day(end, interval=clean.DA_INTERVAL) == lengths[-1]
+
+
+def test_day_ahead_gaps_are_reported():
+    from conftest import make_da_prices
+
+    raw = raw_from(make_da_prices(days=2)).drop(index=[5])
+    df, report = clean_prices(raw, "HB_WEST", "2026-03-01", "2026-03-02",
+                              market="DAY_AHEAD_HOURLY", interval=clean.DA_INTERVAL)
+    assert report.n_missing_intervals == 1 and report.incomplete_days == ["2026-03-01"]
+
+
+def test_wrong_interval_length_for_the_market_raises():
+    raw = raw_from(make_prices(days=1))  # 15-minute rows
+    with pytest.raises(ValueError, match="60 minutes"):
+        clean_prices(raw, "HB_WEST", "2026-03-01", "2026-03-01", interval=clean.DA_INTERVAL)
+
+
+def test_hourly_starts_off_the_hour_raise():
+    from conftest import make_da_prices
+
+    raw = raw_from(make_da_prices(days=1))
+    raw["interval_start_utc"] += pd.Timedelta(minutes=30)
+    raw["interval_end_utc"] += pd.Timedelta(minutes=30)
+    with pytest.raises(ValueError, match="60-minute grid"):
+        clean_prices(raw, "HB_WEST", "2026-03-01", "2026-03-01",
+                     market="DAY_AHEAD_HOURLY", interval=clean.DA_INTERVAL)
+
+
+def test_fetch_spp_works_for_day_ahead_and_keeps_the_v01_name(tmp_path):
+    from conftest import make_da_prices
+
+    assert fetch.fetch_rt_spp is fetch.fetch_spp
+    p = make_da_prices(start="2026-01-30", days=4)
+    raw = fetch.fetch_spp("HB_WEST", "2026-01-30", "2026-02-02", raw_dir=tmp_path, client=FakeClient(p),
+                          dataset=fetch.DA_DATASET, market="DAY_AHEAD_HOURLY", sleep_sec=0, log=lambda s: None)
+    df, report = clean_prices(raw, "HB_WEST", "2026-01-30", "2026-02-02",
+                              market="DAY_AHEAD_HOURLY", interval=clean.DA_INTERVAL)
+    assert report.n_missing_intervals == 0 and len(df) == 4 * 24
+    assert (tmp_path / "gridstatusio" / fetch.DA_DATASET / "HB_WEST").is_dir()

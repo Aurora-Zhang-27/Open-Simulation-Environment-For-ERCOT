@@ -8,3 +8,6 @@ market:
 
 data:
   expected_sha256: ea27b7861e6210514264b51dfed49ab1cd7168ff4b5b693dcbd130dee9750c00  # HB_HOUSTON, 2025-12-05 .. 2026-10-24
+
+day_ahead:
+  expected_sha256: 6885d4eb2c38d404fd604ce9a4ef3417834071602e382ee0fa353a7e7a7b7933  # HB_HOUSTON day-ahead, 2025-12-05 .. 2026-10-24

@@ -62,3 +62,12 @@ baselines:
     high_quantiles: [0.6, 0.7, 0.8, 0.9]
   forecast_mpc:
     forecast: persistence_24h     # same interval 24 hours earlier
+
+# Day-ahead market (two-settlement episodes). Remove this section to work
+# with real-time prices only.
+day_ahead:
+  dataset: ercot_spp_day_ahead_hourly
+  market: DAY_AHEAD_HOURLY
+  decision_time: "10:00"          # DAM offer deadline, local time on the day before
+  history_days: 7                 # days of past prices in the day-ahead context
+  expected_sha256: ee0fd9974f117b07e957b114bd973f2a7890356e02040221b690fae5f344cfe7  # HB_WEST day-ahead, 2025-12-05 .. 2026-10-24

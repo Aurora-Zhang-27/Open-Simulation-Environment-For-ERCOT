@@ -1,15 +1,21 @@
-"""Download raw ERCOT real-time Settlement Point Prices.
+"""Download raw ERCOT Settlement Point Prices (real-time and day-ahead).
 
 Provider: the hosted GridStatus API (https://www.gridstatus.io) through the
 ``gridstatusio`` client (``pip install -e ".[data]"``). It needs a free API
 key in the ``GRIDSTATUS_API_KEY`` environment variable.
 
-Dataset ``ercot_spp_real_time_15_min``: 15-minute real-time SPPs. The
-underlying ERCOT report is NP6-905-CD ("Settlement Point Prices at Resource
-Nodes, Hubs and Load Zones"; source: report id 12301 in the open-source
-``gridstatus`` library, ``gridstatus/ercot.py``). The column names used below
-are checked on every download; if GridStatus changes them, this module raises
-instead of guessing.
+Datasets:
+
+- ``ercot_spp_real_time_15_min``: 15-minute real-time SPPs. The underlying
+  ERCOT report is NP6-905-CD ("Settlement Point Prices at Resource Nodes,
+  Hubs and Load Zones"; source: report id 12301 in the open-source
+  ``gridstatus`` library, ``gridstatus/ercot.py``).
+- ``ercot_spp_day_ahead_hourly``: hourly day-ahead SPPs from the ERCOT
+  report NP4-190-CD (DAM Settlement Point Prices).
+
+Both have the same columns. The column names used below are checked on
+every download; if GridStatus changes them, this module raises instead of
+guessing.
 
 Raw API responses are cached as parquet, one file per calendar month, under
 ``<raw_dir>/gridstatusio/<dataset>/<location>/``. Later runs read the cache
@@ -36,6 +42,7 @@ from rtcb_gym.data.store import to_utc_ns
 
 API_KEY_ENV = "GRIDSTATUS_API_KEY"
 DEFAULT_DATASET = "ercot_spp_real_time_15_min"
+DA_DATASET = "ercot_spp_day_ahead_hourly"
 # Columns we rely on in the gridstatusio response.
 GRIDSTATUSIO_REQUIRED = ("interval_start_utc", "interval_end_utc", "location", "spp")
 
@@ -89,7 +96,7 @@ def make_client(api_key: str | None = None) -> Any:
     return GridStatusClient(api_key=key)
 
 
-def fetch_rt_spp(
+def fetch_spp(
     location: str,
     start_date: str | dt.date,
     end_date: str | dt.date,
@@ -104,8 +111,10 @@ def fetch_rt_spp(
 ) -> pd.DataFrame:
     """Return raw prices for ``location`` over operating days start..end.
 
-    Output columns are :data:`rtcb_gym.data.clean.RAW_COLUMNS`; pass the
-    result to :func:`rtcb_gym.data.clean.clean_prices`.
+    Works for any GridStatus SPP dataset with the columns in
+    :data:`GRIDSTATUSIO_REQUIRED` (real-time and day-ahead). Output columns
+    are :data:`rtcb_gym.data.clean.RAW_COLUMNS`; pass the result to
+    :func:`rtcb_gym.data.clean.clean_prices`.
     """
     check_post_rtcb(start_date)
     cache_dir = Path(raw_dir) / "gridstatusio" / dataset / location
@@ -141,3 +150,7 @@ def fetch_rt_spp(
     if not frames:
         raise RuntimeError(f"no data for {location} {start_date} .. {end_date}")
     return pd.concat(frames, ignore_index=True)
+
+
+# v0.1 name, kept for existing callers.
+fetch_rt_spp = fetch_spp

@@ -3,8 +3,9 @@
 Rules:
 - Store UTC. Add ``local_time`` (interval start in US/Central).
 - An interval belongs to the operating day of its local start time. DST days
-  have 92 (spring forward) or 100 (fall back) 15-minute intervals; working in
-  UTC handles both without special cases.
+  have 92 (spring forward) or 100 (fall back) 15-minute intervals, and 23 or
+  25 hourly day-ahead intervals; working in UTC handles both without special
+  cases.
 - Exact duplicate rows are dropped and counted. Duplicates with different
   prices raise an error: we do not guess which one is right.
 - Gaps (missing intervals, NaN prices) are reported, never filled.
@@ -23,7 +24,8 @@ from rtcb_gym.data.store import COLUMNS, to_utc_ns
 # ERCOT RTC+B go-live: Operating Day 2025-12-05.
 RTCB_GO_LIVE = dt.date(2025, 12, 5)
 ERCOT_TZ = "US/Central"
-INTERVAL = pd.Timedelta(minutes=15)
+INTERVAL = pd.Timedelta(minutes=15)  # real-time settlement interval
+DA_INTERVAL = pd.Timedelta(hours=1)  # day-ahead market interval
 
 RAW_COLUMNS = [
     "interval_start_utc",
@@ -63,17 +65,20 @@ def operating_day_bounds_utc(
 
 
 def expected_intervals_utc(
-    start_date: str | dt.date, end_date: str | dt.date, tz: str = ERCOT_TZ
+    start_date: str | dt.date,
+    end_date: str | dt.date,
+    tz: str = ERCOT_TZ,
+    interval: pd.Timedelta = INTERVAL,
 ) -> pd.DatetimeIndex:
-    """All 15-minute interval starts (UTC) for operating days start..end inclusive."""
+    """All interval starts (UTC) for operating days start..end inclusive."""
     lo, _ = operating_day_bounds_utc(start_date, tz)
     _, hi = operating_day_bounds_utc(end_date, tz)
-    return pd.date_range(lo, hi, freq=INTERVAL, inclusive="left")
+    return pd.date_range(lo, hi, freq=interval, inclusive="left")
 
 
-def intervals_per_day(day: str | dt.date, tz: str = ERCOT_TZ) -> int:
+def intervals_per_day(day: str | dt.date, tz: str = ERCOT_TZ, interval: pd.Timedelta = INTERVAL) -> int:
     lo, hi = operating_day_bounds_utc(day, tz)
-    return int((hi - lo) / INTERVAL)
+    return int((hi - lo) / interval)
 
 
 @dataclass
@@ -127,8 +132,13 @@ def clean_prices(
     end_date: str | dt.date,
     market: str = "REAL_TIME_15_MIN",
     tz: str = ERCOT_TZ,
+    interval: pd.Timedelta = INTERVAL,
 ) -> tuple[pd.DataFrame, CleanReport]:
-    """Return (clean_df, report). ``raw`` must have :data:`RAW_COLUMNS`."""
+    """Return (clean_df, report). ``raw`` must have :data:`RAW_COLUMNS`.
+
+    ``interval`` is the market's interval length: 15 minutes for real-time
+    prices (default), :data:`DA_INTERVAL` (1 hour) for day-ahead prices.
+    """
     start = check_post_rtcb(start_date)
     end = to_date(end_date)
     if end < start:
@@ -162,15 +172,16 @@ def clean_prices(
     report.n_outside_range = int((~in_range).sum())
     df = df[in_range]
 
+    minutes = int(interval / pd.Timedelta(minutes=1))
     length = df["interval_end_utc"] - df["interval_start_utc"]
-    if (length != INTERVAL).any():
-        bad = df.loc[length != INTERVAL, "interval_start_utc"].head(5).tolist()
-        raise ValueError(f"intervals not 15 minutes long, e.g. {bad}")
+    if (length != interval).any():
+        bad = df.loc[length != interval, "interval_start_utc"].head(5).tolist()
+        raise ValueError(f"intervals not {minutes} minutes long, e.g. {bad}")
     starts = df["interval_start_utc"]
-    off_grid = (starts.dt.minute % 15 != 0) | (starts.dt.second != 0)
+    off_grid = starts.dt.floor(interval) != starts
     if off_grid.any():
         raise ValueError(
-            f"interval starts not on a 15-minute grid, e.g. {starts[off_grid].head(5).tolist()}"
+            f"interval starts not on a {minutes}-minute grid, e.g. {starts[off_grid].head(5).tolist()}"
         )
 
     is_nan = df["price_usd_per_mwh"].isna()
@@ -191,7 +202,7 @@ def clean_prices(
     df = df.sort_values("interval_start_utc").reset_index(drop=True)
     df["local_time"] = df["interval_start_utc"].dt.tz_convert(tz)
 
-    expected = expected_intervals_utc(start, end, tz)
+    expected = expected_intervals_utc(start, end, tz, interval)
     present = pd.DatetimeIndex(df["interval_start_utc"])
     missing_idx = expected.difference(present)
     report.n_expected_intervals = len(expected)
