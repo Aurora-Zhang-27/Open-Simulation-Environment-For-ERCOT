@@ -10,7 +10,7 @@ from rtcb_gym.day_ahead import DayAheadContext
 from rtcb_gym.env import RTCBEnv
 from rtcb_gym.settlement import Settlement, settle_real_time, settle_two_settlement
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "Battery",
