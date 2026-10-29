@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "duration-sensitivity",
+      "title": "两个探索面板中的 ECRS 请求裁剪与最优收益差异",
+      "queries": [
+        {
+          "id": "gate-outcomes",
+          "source": {
+            "label": "ECRS gate pilot outputs",
+            "files": [
+              {
+                "label": "February protocol and summary.json"
+              },
+              {
+                "label": "January protocol and summary.json"
+              }
+            ],
+            "metricDefinitions": [
+              {
+                "label": "请求裁剪比例",
+                "definition": "请求裁剪比例是在一小时执行模型中被削减 ECRS 请求的时段数，除以同一面板全部 864 个时段。"
+              },
+              {
+                "label": "最优收益下降",
+                "definition": "最优收益下降比较同一面板的 0.25 小时与一小时 oracle，以前者净收益代理为分母。"
+              }
+            ],
+            "caveats": [
+              "两个面板使用第三方处理后价格，仅用于探索；不是独立留出验证。",
+              "无辅助服务实际部署，LMP/MCPC 现金流是简化代理，不是真实完整结算。",
+              "0.25 小时是相关实现参数的敏感性检查，不是历史旧市场规则。"
+            ]
+          },
+          "reportingPeriod": "2026-02-02–04 与 2026-01-24–26，US/Central",
+          "columns": [
+            "panel",
+            "intervals",
+            "clipped",
+            "clipped_pct",
+            "oracle_loss_pct",
+            "legal_mpc_usd",
+            "relaxed_mpc_executed_legally_usd"
+          ],
+          "rows": [
+            {
+              "panel": "february_pilot",
+              "intervals": 864,
+              "clipped": 154,
+              "clipped_pct": 17.824074074074073,
+              "oracle_1h_usd": 24425.1065655578,
+              "oracle_025h_usd": 24430.793171111414,
+              "oracle_loss_pct": 0.023276385313350703,
+              "legal_mpc_usd": 2137.360261712818,
+              "relaxed_mpc_executed_legally_usd": 2430.2816235082764
+            },
+            {
+              "panel": "january_stress_pilot",
+              "intervals": 864,
+              "clipped": 157,
+              "clipped_pct": 18.171296296296298,
+              "oracle_1h_usd": 212942.56786615786,
+              "oracle_025h_usd": 213815.2414100874,
+              "oracle_loss_pct": 0.40814374979741685,
+              "legal_mpc_usd": -17854.09799474578,
+              "relaxed_mpc_executed_legally_usd": -17180.276185048606
+            }
+          ],
+          "methods": [
+            {
+              "language": "calculation",
+              "code": "clipped_pct = 100 * clipped_ecrs_intervals / intervals\noracle_loss_pct = 100 * (oracle_025h_usd - oracle_1h_usd) / oracle_025h_usd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mirror-missingness",
+      "title": "公开处理后价格的缺口",
+      "queries": [
+        {
+          "id": "file-profile",
+          "source": {
+            "label": "HybridBid public price files",
+            "files": [
+              {
+                "label": "energy_prices/2026-01.parquet"
+              },
+              {
+                "label": "energy_prices/2026-02.parquet"
+              },
+              {
+                "label": "energy_prices/2026-03.parquet"
+              },
+              {
+                "label": "as_prices/2026-01.parquet"
+              },
+              {
+                "label": "as_prices/2026-02.parquet"
+              },
+              {
+                "label": "as_prices/2026-03.parquet"
+              }
+            ],
+            "metricDefinitions": [
+              {
+                "label": "缺失率",
+                "definition": "缺失率按每个 UTC 月份价格文件的该列空值数除以该文件总行数计算。"
+              }
+            ],
+            "caveats": [
+              "这些文件尚未逐格与 ERCOT 原始档案对账，单元格处理历史不可得。",
+              "两个实际运行面板及其历史窗口均无空值或时间缺口；没有补零或插值。"
+            ]
+          },
+          "reportingPeriod": "2026 年 1–3 月 UTC 月度文件",
+          "columns": [
+            "file",
+            "rows",
+            "nulls",
+            "null_rate"
+          ],
+          "rows": [
+            {
+              "file": "energy_prices/2026-01.parquet",
+              "rows": 8928,
+              "nulls": 72,
+              "null_rate": 0.008064516129032258
+            },
+            {
+              "file": "energy_prices/2026-02.parquet",
+              "rows": 8064,
+              "nulls": 0,
+              "null_rate": 0.0
+            },
+            {
+              "file": "energy_prices/2026-03.parquet",
+              "rows": 8928,
+              "nulls": 9,
+              "null_rate": 0.0010080645161290322
+            },
+            {
+              "file": "as_prices/2026-01.parquet",
+              "rows": 8928,
+              "nulls": 82,
+              "null_rate": 0.009184587813620072
+            },
+            {
+              "file": "as_prices/2026-02.parquet",
+              "rows": 8064,
+              "nulls": 0,
+              "null_rate": 0.0
+            },
+            {
+              "file": "as_prices/2026-03.parquet",
+              "rows": 8928,
+              "nulls": 3161,
+              "null_rate": 0.35405465949820786
+            }
+          ],
+          "methods": [
+            {
+              "language": "python",
+              "code": "values = frame[col]\nnulls = int(values.isna().sum())\nnull_rate = float(values.isna().mean())"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

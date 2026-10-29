@@ -11,3 +11,8 @@ dist/
 data/raw/
 # Cleaned data and gap report: not redistributed (see README, "Get the data")
 data/processed/
+# Exports built from GridStatus data (scripts/export_5min.py): not redistributed
+data/exports/
+
+# Reproducible offline demo outputs
+results/demo/
