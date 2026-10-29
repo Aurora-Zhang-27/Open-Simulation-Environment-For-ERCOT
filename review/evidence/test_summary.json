@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-26",
+  "source_snapshots": {
+    "rtcb-gym": "7586e31095666d7c8e5cc59c7a88b47e73e5c058",
+    "ercot-rtcb-bench": "8eb6c343340184bdd5d0491e9d47d3cf1310a32c",
+    "hybridbid": "68c1a62398e53ed4785c4dd67996ed547c4da34b"
+  },
+  "runtime": "Python 3.13.5, NumPy 1.26.4, SciPy 1.15.3, Gymnasium 1.2.3, PyArrow 19.0.0; pandas 2.3.3 for final RTCB-Gym run",
+  "runs": [
+    {
+      "repository": "rtcb-gym",
+      "command": "PYTHONPATH=/private/tmp/rtcb-audit-20261026/deps:/private/tmp/rtcb-audit-20261026/rtcb-gym /opt/anaconda3/bin/python -m pytest -q --disable-warnings",
+      "result": "151 passed, 211 warnings in 14.67s",
+      "scope": "all tests, synthetic prices",
+      "source_modified": false
+    },
+    {
+      "repository": "ercot-rtcb-bench",
+      "command": "PYTHONPATH=/private/tmp/rtcb-audit-20261026/ercot-rtcb-bench/src /opt/anaconda3/bin/python -m pytest tests -q --disable-warnings",
+      "result": "97 passed, 14 skipped, 1 warning in 7.02s",
+      "scope": "all repository tests; external-data tests may skip",
+      "source_modified": false
+    },
+    {
+      "repository": "hybridbid",
+      "command": "PYTHONPATH=/private/tmp/rtcb-audit-20261026/deps:/private/tmp/rtcb-audit-20261026/hybridbid /opt/anaconda3/bin/python -m pytest tests/test_battery_sim.py tests/test_feasibility.py tests/test_reward_recompute.py -q --disable-warnings",
+      "result": "35 passed, 2 skipped, 1 warning in 1.16s",
+      "scope": "three test files only; not a full-suite result",
+      "source_modified": false
+    }
+  ],
+  "initial_environment_failure": {
+    "repository": "rtcb-gym",
+    "versions": "pandas 3.0.2 + PyArrow 19.0.0",
+    "result": "148 passed, 3 parquet timezone read failures",
+    "resolution": "reran unchanged source with pandas 2.3.3 in a temporary target directory; all 151 passed"
+  },
+  "limits": [
+    "No complete historical data download or hash reproduction.",
+    "No full-market result-table reproduction.",
+    "Synthetic probes show failure cases; they do not quantify impact on historical profits.",
+    "No model training or accepted-publication claims verified."
+  ]
+}

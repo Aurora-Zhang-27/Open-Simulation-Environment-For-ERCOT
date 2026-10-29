@@ -4,7 +4,7 @@ on:
   push:
   pull_request:
 
-# The workflow only installs the package and runs pytest.
+# Install the package, run tests and execute the offline CPU example.
 permissions:
   contents: read
 
@@ -21,3 +21,5 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
       - run: pytest -q
+      - name: Offline CPU example (no market-data credentials)
+        run: python -m rtcb_gym.demo --out results/demo

@@ -1,0 +1,234 @@
+{
+  "protocol": {
+    "analysis_stage": "exploratory_third_party_mirror",
+    "start": "2026-02-02 06:00:00+00:00",
+    "end_exclusive": "2026-02-05 06:00:00+00:00",
+    "intervals": 864,
+    "battery": {
+      "power_mw": 100.0,
+      "energy_mwh": 200.0,
+      "rte": 0.85,
+      "soc_min": 0.0,
+      "soc_max": 1.0,
+      "soc_init": 0.5,
+      "soc_terminal_min": 0.5,
+      "degradation_cost_usd_per_mwh": 2.0
+    },
+    "canonical_rule": "ecrs-1h-discharge-reservation-v1",
+    "comparison_rule": "sensitivity-0.25h-discharge-reservation-v1",
+    "mpc_horizon_steps": 12,
+    "publication_lag_minutes": 5,
+    "publication_lag_verified": false,
+    "price_basis": "HB_HUBAVG_5min_LMP_MCPC_proxy",
+    "as_deployment": "none",
+    "software": {
+      "python": "3.13.5",
+      "numpy": "2.2.6",
+      "pandas": "2.3.3"
+    },
+    "dependency_versions": {
+      "scipy": "1.15.3",
+      "gymnasium": "1.2.3",
+      "pyarrow": "26.0.0"
+    },
+    "code_sha256": {
+      "rtcb_gym/experimental/ecrs.py": "7dcfcaa9c3dc504b23b24b34b1e4774bf6816c707b2faed189e69663fef3dd7b",
+      "rtcb_gym/battery.py": "a3ece8bf984bf0d0dd960ef840565758712a8670aebf47d6e8163794ef0c9ab9",
+      "scripts/run_ecrs_gate.py": "82c8ef34739bc4e9d239103fe379b95cc955fce9a6d7a7b7c1e34a5c74ea2aa1"
+    },
+    "input_files": [
+      {
+        "file": "energy_prices/2026-01.parquet",
+        "sha256": "0b5e684ec3f8a9575918cc3ae27462b4dfbf6dc40e4ae6fbe2e76f6c3065569b",
+        "rows": 8928,
+        "column": "rt_lmp",
+        "nulls": 72,
+        "null_rate": 0.008064516129032258,
+        "zeros": 12,
+        "duplicate_timestamps": 0,
+        "start": "2026-01-01 00:00:00+00:00",
+        "end": "2026-01-31 23:55:00+00:00",
+        "quantiles": {
+          "0.0": -11.08,
+          "0.01": -7.2620000000000005,
+          "0.5": 23.865000000000002,
+          "0.99": 448.0445000000006,
+          "1.0": 1350.5
+        }
+      },
+      {
+        "file": "energy_prices/2026-02.parquet",
+        "sha256": "699fed34f3d208efdf2c5a06e8be619630408a1b8877574dd7612cfaceb9df5d",
+        "rows": 8064,
+        "column": "rt_lmp",
+        "nulls": 0,
+        "null_rate": 0.0,
+        "zeros": 55,
+        "duplicate_timestamps": 0,
+        "start": "2026-02-01 00:00:00+00:00",
+        "end": "2026-02-28 23:55:00+00:00",
+        "quantiles": {
+          "0.0": -29.86,
+          "0.01": -11.145800000000001,
+          "0.5": 17.53,
+          "0.99": 136.7622,
+          "1.0": 464.6
+        }
+      },
+      {
+        "file": "energy_prices/2026-03.parquet",
+        "sha256": "bc019d5f414ee3fcbafc1c97c18b2d0c3ff8c4cae951d40e8fc54379a2397e7f",
+        "rows": 8928,
+        "column": "rt_lmp",
+        "nulls": 9,
+        "null_rate": 0.0010080645161290322,
+        "zeros": 25,
+        "duplicate_timestamps": 0,
+        "start": "2026-03-01 00:00:00+00:00",
+        "end": "2026-03-31 23:55:00+00:00",
+        "quantiles": {
+          "0.0": -18.58,
+          "0.01": -6.91,
+          "0.5": 17.62,
+          "0.99": 121.59379999999997,
+          "1.0": 884.35
+        }
+      },
+      {
+        "file": "as_prices/2026-01.parquet",
+        "sha256": "34235bdcbceb8bb948f64a718e9d891a7b4591718be7103b988ca426819f2bd9",
+        "rows": 8928,
+        "column": "rt_mcpc_ecrs",
+        "nulls": 82,
+        "null_rate": 0.009184587813620072,
+        "zeros": 1023,
+        "duplicate_timestamps": 0,
+        "start": "2026-01-01 00:00:00+00:00",
+        "end": "2026-01-31 23:55:00+00:00",
+        "quantiles": {
+          "0.0": 0.0,
+          "0.01": 0.0,
+          "0.5": 0.06,
+          "0.99": 12.369999999999855,
+          "1.0": 399.45
+        }
+      },
+      {
+        "file": "as_prices/2026-02.parquet",
+        "sha256": "f39a5358230f455d13639f57c0c2a35191ee522a1c65dab55896cb5d7e573f12",
+        "rows": 8064,
+        "column": "rt_mcpc_ecrs",
+        "nulls": 0,
+        "null_rate": 0.0,
+        "zeros": 618,
+        "duplicate_timestamps": 0,
+        "start": "2026-02-01 00:00:00+00:00",
+        "end": "2026-02-28 23:55:00+00:00",
+        "quantiles": {
+          "0.0": 0.0,
+          "0.01": 0.0,
+          "0.5": 0.04,
+          "0.99": 6.757399999999998,
+          "1.0": 13.63
+        }
+      },
+      {
+        "file": "as_prices/2026-03.parquet",
+        "sha256": "1a039734c380a9d10e506b524a7dd3b74e89ef01c876176bb1e2f1909136cac9",
+        "rows": 8928,
+        "column": "rt_mcpc_ecrs",
+        "nulls": 3161,
+        "null_rate": 0.35405465949820786,
+        "zeros": 217,
+        "duplicate_timestamps": 0,
+        "start": "2026-03-01 00:00:00+00:00",
+        "end": "2026-03-31 23:55:00+00:00",
+        "quantiles": {
+          "0.0": 0.0,
+          "0.01": 0.0,
+          "0.5": 0.03,
+          "0.99": 6.136800000000003,
+          "1.0": 20.44
+        }
+      }
+    ],
+    "interpretation": "The 0.25h model is a sensitivity case reproducing a comparator parameter, not the historical pre-RTC+B ECRS rule."
+  },
+  "results": [
+    {
+      "policy": "idle",
+      "intervals": 864,
+      "revenue_proxy_usd": 0.0,
+      "energy_proxy_usd": 0.0,
+      "ecrs_proxy_usd": 0.0,
+      "degradation_usd": 0.0,
+      "clipped_ecrs_intervals": 0,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 0.0,
+      "terminal_soc": 0.5
+    },
+    {
+      "policy": "energy_mpc",
+      "intervals": 864,
+      "revenue_proxy_usd": 2075.6976907879252,
+      "energy_proxy_usd": 4732.455849328525,
+      "ecrs_proxy_usd": 0.0,
+      "degradation_usd": 2656.7581585405997,
+      "clipped_ecrs_intervals": 0,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 0.0,
+      "terminal_soc": 0.5
+    },
+    {
+      "policy": "ecrs_mpc_1h",
+      "intervals": 864,
+      "revenue_proxy_usd": 2137.360261712818,
+      "energy_proxy_usd": 4749.364278477133,
+      "ecrs_proxy_usd": 37.45755598748383,
+      "degradation_usd": 2649.4615727517976,
+      "clipped_ecrs_intervals": 0,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 1.5729147499755367e-13,
+      "terminal_soc": 0.5000000000000001
+    },
+    {
+      "policy": "ecrs_mpc_0.25h_executed_under_1h",
+      "intervals": 864,
+      "revenue_proxy_usd": 2430.2816235082764,
+      "energy_proxy_usd": 4944.206048510245,
+      "ecrs_proxy_usd": 46.33483045927839,
+      "degradation_usd": 2560.2592554612456,
+      "clipped_ecrs_intervals": 154,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 6723.610920677551,
+      "terminal_soc": 0.5
+    },
+    {
+      "policy": "oracle_1h",
+      "intervals": 864,
+      "revenue_proxy_usd": 24425.1065655578,
+      "energy_proxy_usd": 28013.05524144209,
+      "ecrs_proxy_usd": 130.81492168336962,
+      "degradation_usd": 3718.7635975676662,
+      "clipped_ecrs_intervals": 0,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 3.211653165635653e-12,
+      "terminal_soc": 0.5,
+      "mip_gap": 0.0
+    },
+    {
+      "policy": "oracle_0.25h",
+      "intervals": 864,
+      "revenue_proxy_usd": 24430.793171111414,
+      "energy_proxy_usd": 28012.205312039394,
+      "ecrs_proxy_usd": 137.3514566396849,
+      "degradation_usd": 3718.7635975676662,
+      "clipped_ecrs_intervals": 0,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 7.65965069149388e-12,
+      "terminal_soc": 0.5,
+      "mip_gap": 0.0
+    }
+  ],
+  "conclusion_scope": "Exploratory reduced-model sensitivity; not official settlement, deployment validation, or independent held-out evidence."
+}

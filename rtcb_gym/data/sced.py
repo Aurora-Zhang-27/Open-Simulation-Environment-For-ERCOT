@@ -8,14 +8,16 @@ Clearing Price for Capacity per ancillary service (``ercot_mcpc_sced``).
 
 Price in effect
     A run's price takes effect at its SCED timestamp and stays in effect
-    until the next run. This is how ERCOT settles: the 15-minute real-time
-    price is the time-weighted average of the SCED prices in effect during
+    until the next run under the reconstruction assumption. The 15-minute real-time
+    price is a time-weighted aggregate of SCED prices during
     the interval. :func:`five_minute_grid` applies the same weighting to a
     regular 5-minute UTC grid, so the mean of the three 5-minute values of a
-    15-minute interval is that interval's time-weighted price.
+    15-minute interval is that interval's time-weighted input price. This
+    reconstruction does not establish the settlement of variable-power
+    strategies; adders, caps and settlement quantities require separate checks.
 
 SCED clock
-    The SCED runs that happened: every SCED timestamp seen in any of the
+    The observed SCED clock: every SCED timestamp seen in any of the
     series exported together (energy LMPs have a row for every run; an AS
     series can lack some). A run missing from one series still happened,
     so its price is unknown, not "not set".
@@ -26,8 +28,9 @@ Statuses on the 5-minute grid (most severe first)
                   the known part only
     ``imputed``   SCED ran, but this series lacks that run's price; the
                   last known price of the series is used in its place
-    ``carried``   no SCED run started in the interval; the previous run's
-                  price was still in effect (ERCOT's rule, not an estimate)
+    ``carried``   no run appears on the supplied clock in the interval;
+                  carry the previous price. This alone cannot prove that
+                  ERCOT did not run SCED or that the provider missed no rows.
     ``rerun``     more than one run started in the interval
     ``ok``        exactly one run started in the interval
 
@@ -77,13 +80,18 @@ def fetch_sced(
     sleep_sec: float = 2.0,
     force: bool = False,
     log: Callable[[str], None] = print,
+    offline: bool = True,
 ) -> pd.DataFrame:
     """Rows of a SCED dataset with SCED timestamps in [start_utc, end_utc).
 
     Cached as parquet, one file per UTC month, under
     ``<raw_dir>/gridstatusio/<dataset>/<filter_value>/``. Raises if the
-    response lacks a required column.
+    response lacks a required column. Cache-only by default: missing cache
+    files raise before constructing an API client. Set offline=False to
+    explicitly allow downloads.
     """
+    if offline and force:
+        raise ValueError("force cannot be used with offline=True")
     cache = Path(raw_dir) / "gridstatusio" / dataset / filter_value
     cache.mkdir(parents=True, exist_ok=True)
     frames = []
@@ -93,6 +101,11 @@ def fetch_sced(
             log(f"[cache] {path}")
             raw = pd.read_parquet(path)
         else:
+            if offline:
+                raise FileNotFoundError(
+                    f"Offline mode: missing SCED cache {path}. Copy the existing "
+                    "cloud cache here, or explicitly enable downloads. No API request was made."
+                )
             client = client or make_client()
             log(f"[fetch] {dataset} {filter_value} {lo} .. {hi}")
             raw = pd.DataFrame(client.get_dataset(
@@ -147,6 +160,10 @@ def five_minute_grid(
     [start_utc, end_utc). ``clock`` is the SCED clock (default: the runs of
     ``s``). See the module docstring for the statuses."""
     start, end = pd.Timestamp(start_utc).as_unit("ns"), pd.Timestamp(end_utc).as_unit("ns")
+    if start.tzinfo is None or end.tzinfo is None or end <= start:
+        raise ValueError("start/end must be timezone-aware and end must follow start")
+    if pd.isna(max_carry) or max_carry <= pd.Timedelta(0):
+        raise ValueError("max_carry must be positive")
     if start.floor(FIVE_MIN) != start or end.floor(FIVE_MIN) != end:
         raise ValueError("start and end must be on the 5-minute grid")
     clock = (s.index if clock is None else pd.DatetimeIndex(clock).union(s.index)).as_unit("ns")
@@ -156,8 +173,8 @@ def five_minute_grid(
     # last known price at or before each run, and the run that published it
     idx = np.where(known, np.arange(len(c)), -1)
     idx = np.maximum.accumulate(idx) if len(idx) else idx
-    kv = np.where(idx >= 0, vc[np.maximum(idx, 0)], np.nan)
-    kv_ts = np.where(idx >= 0, c[np.maximum(idx, 0)], 0)
+    kv = np.where(idx >= 0, vc[np.maximum(idx, 0)], np.nan) if len(c) else np.array([])
+    kv_ts = np.where(idx >= 0, c[np.maximum(idx, 0)], 0) if len(c) else np.array([])
 
     edges = pd.date_range(start, end, freq=FIVE_MIN).as_unit("ns").asi8
     carry, width = max_carry.value, FIVE_MIN.value
@@ -166,6 +183,7 @@ def five_minute_grid(
     n = len(edges) - 1
     value = np.full(n, np.nan)
     last_value = np.full(n, np.nan)
+    coverage = np.zeros(n)
     runs = (after - first).astype(np.int64)
     status = np.empty(n, dtype=object)
     source = np.full(n, np.iinfo(np.int64).min, dtype=np.int64)  # oldest run whose price filled the interval
@@ -183,16 +201,23 @@ def five_minute_grid(
         for a, b, r in zip(seg_starts, seg_ends, seg_runs):
             if r < 0:
                 continue  # before the first run in the data
-            if known[r] and b - c[r] <= carry:
+            segment_imputed = not known[r]
+            if known[r]:
                 price, published_at = vc[r], c[r]
-            elif not known[r] and idx[r] >= 0 and b - kv_ts[r] <= carry:
-                price, published_at, imputed = kv[r], kv_ts[r], True
+            elif idx[r] >= 0:
+                price, published_at = kv[r], kv_ts[r]
             else:
                 continue
+            # Retain the valid prefix when the age limit falls inside a segment.
+            b = min(b, published_at + carry)
+            if b <= a:
+                continue
+            imputed = imputed or segment_imputed
             area += price * (b - a)
             covered += b - a
-            if r < i0 or imputed:  # value came from before the interval or was imputed
+            if r < i0 or segment_imputed:
                 oldest = published_at if oldest is None else min(oldest, published_at)
+        coverage[k] = covered / 1e9
         if i1 > i0:
             last_value[k] = vc[i1 - 1]
         if covered == 0:
@@ -207,7 +232,7 @@ def five_minute_grid(
             status[k] = "carried"
         else:
             status[k] = "rerun" if runs[k] > 1 else "ok"
-        if status[k] in ("imputed", "carried") and oldest is not None:
+        if status[k] in ("imputed", "carried", "partial") and oldest is not None:
             source[k] = oldest
 
     src = pd.DatetimeIndex(source.view("datetime64[ns]")).tz_localize("UTC")  # int64 min is NaT
@@ -218,6 +243,7 @@ def five_minute_grid(
         "last_sced_value": last_value,
         "sced_runs": runs,
         "status": status,
+        "covered_seconds": coverage,
         "fill_source_sced_utc": src,
     })
 

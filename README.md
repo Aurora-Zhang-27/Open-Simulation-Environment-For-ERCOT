@@ -18,6 +18,30 @@ real-time markets together (two-settlement).
 > - **Energy only.** Real time, optionally with the day-ahead market. No
 >   ancillary services, no fees.
 
+## Start without an API key or GPU
+
+The current development target is a reusable CPU tool: install it, run a
+strategy, and inspect reproducible outputs. Training an agent is optional.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e '.[dev]'
+python -m rtcb_gym.demo --out results/demo
+```
+
+This **synthetic** example runs idle, a rule using delayed historical prices,
+and a perfect-foresight optimizer in the experimental energy + ECRS model.
+It writes `trace.csv`, `summary.json`, `manifest.json`, input prices and
+`SHA256SUMS`. The oracle is replayed through the same execution model and
+checked against its objective. This example makes no market-data requests.
+It uses cash-flow proxies; it does not validate official AS settlement.
+
+See [the quickstart](docs/quickstart.md) for outputs, real-data requirements
+and current limitations, and [the product blueprint](BLUEPRINT.md) for release
+criteria. The new development commands must be included in a release before
+users can obtain them from the public main branch.
+
 ## Status
 
 **v0.2.0**: day-ahead market and two-settlement, a rolling threshold
@@ -119,6 +143,12 @@ optimizer's objective (within 1e-6 relative).
   $10.2k/day on validation, where July is the quietest month.
 
 ## Install
+
+An experimental five-minute **energy + ECRS reservation gate** is available
+under `rtcb_gym.experimental.ecrs`; see [its model and validation status](docs/ecrs_gate.md).
+It is a conservative discharge-side-only research model with no AS deployment
+or market clearing. Its LMP/MCPC cash-flow proxies are separate from the v0.2
+energy-settlement results above.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -432,6 +462,9 @@ configs/hb_houston.yaml       the same at HB_HOUSTON (extends default.yaml)
 rtcb_gym/data/fetch.py        download (gridstatusio) with raw cache
 rtcb_gym/data/clean.py        timezone, DST, duplicates, gap report
 rtcb_gym/data/store.py        parquet schema, checksum
+rtcb_gym/data/sced.py         SCED cache and time-weighted input-price reconstruction
+rtcb_gym/demo.py              offline CPU example using synthetic prices
+rtcb_gym/experimental/ecrs.py experimental energy + ECRS reservation model
 rtcb_gym/battery.py           physical model
 rtcb_gym/settlement.py        money: real-time only and two-settlement
 rtcb_gym/day_ahead.py         day-ahead timeline, context, bid clipping, persistence forecast
@@ -462,14 +495,19 @@ no-look-ahead guarantee and an exact upper bound.
 
 ## Roadmap
 
-| Version | Content |
+The next release is a CPU tool that another user can clone, install and run
+with versioned real data. [The blueprint](BLUEPRINT.md) defines its acceptance
+criteria; positive strategy returns are not a release requirement.
+
+| Priority | Deliverable |
 |---|---|
-| v0.1 | real-time energy, three baselines, results table |
-| **v0.2** | day-ahead market and two-settlement; rolling threshold baseline; second hub |
-| v0.5 | real-time ancillary services co-optimized with energy |
-| v1.0 | stress-scenario generator, validated against held-out data |
-| v1.x | better forecasters, risk guardrails |
-| v2.0 | LLM agent with tools, scored in the same environment |
+| 1 | Offline installation example and reproducible output artifacts |
+| 2 | Audited real-data import, provenance, statuses and an executable tutorial |
+| 3 | Complete the scoped energy + ECRS constraints, timing and settlement ledger |
+| 4 | Custom-policy tutorial, independent reproduction and release verification |
+| Later | Other AS products, each with its own rule and accounting validation |
+
+Training agents, large forecasting models and scenario generation are deferred.
 
 ## License
 

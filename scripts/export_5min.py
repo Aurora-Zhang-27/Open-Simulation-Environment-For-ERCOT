@@ -6,7 +6,7 @@ For the configured operating days it writes, under data/exports/ (git-ignored:
 the data must not be redistributed):
 
     energy_5min_<hub>.csv   5-minute energy prices per hub: SCED LMP, RTRDPA and
-                            their sum (the energy price that settles)
+                            their sum (an input-price proxy; see settlement caveats)
     ecrs_mcpc_5min.csv      5-minute real-time ECRS MCPC (system-wide)
     sced_runs.csv           every SCED run as published, no fills
     gaps_and_fills.csv      every 5-minute interval that is not a plain SCED value
@@ -15,7 +15,7 @@ the data must not be redistributed):
 
 All times are UTC. Each 5-minute value is the time-weighted average of the
 price in effect (see rtcb_gym/data/sced.py). Raw API responses are cached
-under data/raw/, so the script runs offline once the cache is complete.
+under data/raw/. Cache-only is the default; --allow-download explicitly enables API requests.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from rtcb_gym.data.store import processed_path, read_prices
 ADDERS_DATASET = "ercot_lmp_with_adders_by_settlement_point"
 ADDERS_REQUIRED = ("sced_timestamp_utc", "location", "lmp", "rtorpa", "rtordpa", "rtrdpa", "lmp_with_adders")
 SEVERITY = ["ok", "rerun", "carried", "imputed", "partial", "missing"]
-TS_FMT = "%Y-%m-%dT%H:%M:%SZ"
+TS_FMT = "%Y-%m-%dT%H:%M:%S.%fZ"
 DECIMALS = 6  # 5-minute averages are rounded to micro-dollars; published prices have 2 decimals
 
 SOURCES = {
@@ -89,7 +89,7 @@ def cached_frames(raw_dir: Path, dataset: str, key: str) -> tuple[pd.DataFrame |
     if not files:
         return None, []
     info = [{"file": str(f.relative_to(REPO_ROOT)) if f.is_relative_to(REPO_ROOT) else str(f),
-             "downloaded_utc": dt.datetime.fromtimestamp(f.stat().st_mtime, dt.timezone.utc).strftime(TS_FMT)}
+             "cache_mtime_utc": dt.datetime.fromtimestamp(f.stat().st_mtime, dt.timezone.utc).strftime(TS_FMT)}
             for f in files]
     return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True), info
 
@@ -115,6 +115,7 @@ def main() -> None:
     ap.add_argument("--hubs", nargs="+", default=["HB_WEST", "HB_HOUSTON"])
     ap.add_argument("--out", default=None, help="default: data/exports/ercot_5min_<start>_<end>")
     ap.add_argument("--max-carry-minutes", type=float, default=60.0)
+    ap.add_argument("--allow-download", action="store_true", help="allow missing cache chunks to be downloaded (uses API quota)")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -127,7 +128,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     max_carry = pd.Timedelta(minutes=args.max_carry_minutes)
     hubs, ref = args.hubs, args.hubs[0]
-    fetch_kw = dict(raw_dir=raw_dir, sleep_sec=float(d.get("sleep_sec", 2)))
+    fetch_kw = dict(raw_dir=raw_dir, sleep_sec=float(d.get("sleep_sec", 2)), offline=not args.allow_download)
 
     # ---------------------------------------------------------------- fetch (cache first)
     raw_lmp = {h: sced.fetch_sced(sced.SCED_LMP_DATASET, lo, hi, filter_column="location", filter_value=h,
@@ -294,7 +295,7 @@ def main() -> None:
         },
         "method": {
             "price_in_effect": "A SCED run's price applies from its SCED timestamp until the next SCED run "
-                               "(ERCOT's settlement rule). Each 5-minute value is the time-weighted average "
+                               "under the reconstruction assumption. Each 5-minute value is the time-weighted average "
                                "of the price in effect over [interval_start, interval_end).",
             "sced_clock": "Union of the SCED timestamps of all exported series.",
             "energy_price": "energy_price = lmp + rtrdpa (5-minute averages). rtorpa and rtordpa are empty "
@@ -303,8 +304,8 @@ def main() -> None:
             "statuses": {
                 "ok": "one SCED run started in the interval",
                 "rerun": "more than one SCED run started in the interval",
-                "carried": "no SCED run started in the interval; the previous run's price was still in effect "
-                           "(ERCOT's rule, not an estimate)",
+                "carried": "no SCED run appears on the observed clock in the interval; prior price carried "
+                           "conditional on complete provider coverage",
                 "imputed": "SCED ran, but this series has no price for that run; the last known price of the "
                            "series is used instead (an estimate)",
                 "partial": "part of the interval has no known price; averaged over the known part only",
@@ -312,8 +313,8 @@ def main() -> None:
             },
             "max_carry_minutes": args.max_carry_minutes,
             "rounding": f"5-minute values rounded to {DECIMALS} decimals",
-            "pre_rtcb": "No data before the RTC+B go-live (2025-12-05 00:00 CPT) is used, so the first "
-                        "interval has no price.",
+            "pre_rtcb": "No data before the RTC+B go-live (2025-12-05 00:00 CPT) is used. "
+                        "Any portion before the first observed run is unknown.",
         },
         "sced_runs": {
             "runs_on_clock": len(clock),
@@ -327,6 +328,11 @@ def main() -> None:
         "rtrdpa_is_system_wide": cross or "no other hub's adders in the cache to compare",
         "validation_against_official_15_minute_spp": validation or "no processed real-time SPP found",
         "not_checked": [
+            "Five-minute price reconstruction does not validate variable-power strategy settlement. "
+            "The current ECRS prototype uses cash-flow proxies, not an official settlement ledger.",
+            "Whether the provider mcpc field includes ECRS-specific reliability deployment adders.",
+            "No run on the observed union clock does not independently prove that SCED did not run.",
+            "The SPP comparison includes fully covered imputed/carried rows and is an overlap-only comparison.",
             "ERCOT price corrections (ercot_lmp_by_settlement_point_price_corrections, "
             "ercot_mcpc_sced_price_corrections): whether the exported values include them was not checked.",
         ],
@@ -340,7 +346,7 @@ def main() -> None:
                               "<value repr>\\n' per SCED run; independent of file formats and library versions",
             "files": "SHA256SUMS (sha256sum -c SHA256SUMS)",
         },
-        "software": {"rtcb_gym": rtcb_gym.__version__, "git_commit": git_commit(), "python": platform.python_version(),
+        "software": {"offline_cache_only": not args.allow_download, "rtcb_gym": rtcb_gym.__version__, "git_commit": git_commit(), "python": platform.python_version(),
                      "pandas": pd.__version__, "numpy": np.__version__},
     }
     (out / "report.json").write_text(json.dumps(report, indent=2, default=str) + "\n")
@@ -366,7 +372,7 @@ def render_markdown(r: dict) -> str:
         "",
         "| File | Content |",
         "|---|---|",
-        "| `energy_5min_<hub>.csv` | per 5-minute interval: SCED runs, `lmp`, `rtrdpa`, `energy_price` (= lmp + rtrdpa, the energy price that settles), status of each |",
+        "| `energy_5min_<hub>.csv` | per 5-minute interval: SCED runs, `lmp`, `rtrdpa`, `energy_price` (= lmp + rtrdpa, input-price proxy), status of each |",
         "| `ecrs_mcpc_5min.csv` | per 5-minute interval: real-time ECRS MCPC (USD/MW per hour) and status |",
         "| `sced_runs.csv` | every SCED run as published, no fills (empty cell = not in that series) |",
         "| `gaps_and_fills.csv` | every interval whose status is not `ok` or `rerun`, with the SCED run its value came from |",
@@ -378,7 +384,7 @@ def render_markdown(r: dict) -> str:
     ]
     for name, ds in r["sources"]["datasets"].items():
         files = ds["cache_files"]
-        when = f"downloaded {files[0]['downloaded_utc']} .. {files[-1]['downloaded_utc']}" if files else ""
+        when = f"cache file mtimes {files[0]['cache_mtime_utc']} .. {files[-1]['cache_mtime_utc']} (not verified download times)" if files else ""
         lines.append(f"- `{name}`, column `{ds['column']}` ({ds['unit']}): {ds['what']}. {len(files)} monthly files, {when}.")
     lines += ["", f"Query: {r['sources']['query']}.", "", "## Method", ""]
     labels = {"price_in_effect": "Price in effect", "sced_clock": "SCED clock", "energy_price": "Energy price",

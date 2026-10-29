@@ -13,3 +13,6 @@ data/raw/
 data/processed/
 # Exports built from GridStatus data (scripts/export_5min.py): not redistributed
 data/exports/
+
+# Reproducible offline demo outputs
+results/demo/

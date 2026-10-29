@@ -58,7 +58,11 @@ def test_prices_are_not_carried_past_max_carry():
     s = runs([20, 3620], [10, 99])  # an hour without SCED
     g = grid(s, n_bins=13, max_carry=pd.Timedelta(minutes=15))
     assert list(g["status"][1:3]) == ["carried", "carried"]  # 10 and 15 min after the run
-    assert (g["status"][3:12] == "missing").all() and g["value"][3:12].isna().all()
+    assert g.loc[3, "status"] == "partial"
+    assert g.loc[3, "value"] == 10.0
+    assert g.loc[3, "covered_seconds"] == 20.0
+    assert g.loc[3, "fill_source_sced_utc"] == T0 + 20 * S
+    assert (g["status"][4:12] == "missing").all() and g["value"][4:12].isna().all()
     assert g.loc[12, "status"] == "partial"  # 20 s unknown, then the new run
     assert g.loc[12, "value"] == 99.0
 
@@ -136,7 +140,7 @@ def test_fetch_sced_caches_and_checks_columns(tmp_path):
     ts = pd.date_range("2026-01-31 23:00", periods=24, freq="5min", tz="UTC") + 20 * S
     frame = pd.DataFrame({"sced_timestamp_utc": ts, "as_type": "ECRS", "mcpc": 1.0, "uncapped_mcpc": None})
     client = FakeClient(frame)
-    kw = dict(raw_dir=tmp_path, filter_column="as_type", filter_value="ECRS", client=client, sleep_sec=0, log=lambda m: None)
+    kw = dict(raw_dir=tmp_path, filter_column="as_type", filter_value="ECRS", client=client, sleep_sec=0, log=lambda m: None, offline=False)
     lo, hi = pd.Timestamp("2026-01-31 23:00", tz="UTC"), pd.Timestamp("2026-02-01 01:00", tz="UTC")
     a = sced.fetch_sced(sced.SCED_MCPC_DATASET, lo, hi, required=sced.MCPC_REQUIRED, **kw)
     assert len(a) == 24 and client.calls == 2  # January and February chunks
@@ -144,3 +148,43 @@ def test_fetch_sced_caches_and_checks_columns(tmp_path):
     assert client.calls == 2 and len(b) == 24  # from the cache
     with pytest.raises(ValueError, match="missing columns"):
         sced.fetch_sced(sced.SCED_MCPC_DATASET, lo, hi, required=("price",), **kw)
+
+
+def test_offline_missing_cache_never_constructs_client(tmp_path, monkeypatch):
+    def forbidden():
+        pytest.fail("offline path tried to construct an API client")
+    monkeypatch.setattr(sced, "make_client", forbidden)
+    kw = dict(raw_dir=tmp_path, filter_column="as_type", filter_value="ECRS",
+              required=sced.MCPC_REQUIRED, log=lambda m: None)
+    with pytest.raises(FileNotFoundError, match="No API request"):
+        sced.fetch_sced(sced.SCED_MCPC_DATASET, T0, T0 + M, **kw)
+    with pytest.raises(ValueError, match="offline"):
+        sced.fetch_sced(sced.SCED_MCPC_DATASET, T0, T0 + M, force=True, **kw)
+
+
+def test_expiring_imputation_retains_only_valid_prefix():
+    s = runs([20], [10])
+    clock = runs([20, 620], [0, 0]).index
+    g = grid(s, n_bins=5, clock=clock, max_carry=15*M)
+    assert g.loc[2, "status"] == "imputed"
+    assert g.loc[3, "status"] == "partial"
+    assert g.loc[3, "covered_seconds"] == 20
+    assert g.loc[4, "status"] == "missing"
+
+
+def test_empty_series_is_missing_without_filling():
+    g = grid(runs([], []))
+    assert (g["status"] == "missing").all()
+    assert (g["covered_seconds"] == 0).all()
+
+
+def test_complete_cache_can_be_read_offline(tmp_path, monkeypatch):
+    path = tmp_path / "gridstatusio" / sced.SCED_MCPC_DATASET / "ECRS"
+    path.mkdir(parents=True)
+    pd.DataFrame({"sced_timestamp_utc": [T0], "as_type": ["ECRS"],
+                  "mcpc": [1.], "uncapped_mcpc": [None]}).to_parquet(
+        path / f"{T0:%Y%m%dT%H%M}_{T0+M:%Y%m%dT%H%M}.parquet", index=False)
+    monkeypatch.setattr(sced, "make_client", lambda: pytest.fail("API client constructed"))
+    f = sced.fetch_sced(sced.SCED_MCPC_DATASET, T0, T0+M, tmp_path,
+                        "as_type", "ECRS", sced.MCPC_REQUIRED, log=lambda m: None)
+    assert len(f) == 1
