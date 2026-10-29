@@ -38,17 +38,17 @@ checked against its objective. This example makes no market-data requests.
 It uses cash-flow proxies; it does not validate official AS settlement.
 
 See [the quickstart](docs/quickstart.md) for outputs, real-data requirements
-and current limitations, and [the product blueprint](BLUEPRINT.md) for release
-criteria. The new development commands must be included in a release before
-users can obtain them from the public main branch.
+and current limitations.
 
 ## Status
 
-**v0.2.0**: day-ahead market and two-settlement, a rolling threshold
-baseline, and results for two hubs.
+**v0.3.0**: the offline CPU example above, an experimental five-minute
+energy + ECRS model and a five-minute SCED price export. v0.2.0 added the
+day-ahead market and two-settlement, a rolling threshold baseline, and
+results for two hubs.
 
 - **Done:** simulator, settlement (real-time only and two-settlement),
-  Gymnasium environment, nine baselines and the data pipeline. All 151 unit
+  Gymnasium environment, nine baselines and the data pipeline. All unit
   tests pass. They use synthetic prices only.
 - **Data:** real-time and day-ahead prices for HB_WEST and HB_HOUSTON,
   downloaded 2026-10-25/26 with gridstatusio 0.16.1. The column mapping
@@ -496,8 +496,8 @@ no-look-ahead guarantee and an exact upper bound.
 ## Roadmap
 
 The next release is a CPU tool that another user can clone, install and run
-with versioned real data. [The blueprint](BLUEPRINT.md) defines its acceptance
-criteria; positive strategy returns are not a release requirement.
+with versioned real data. It is done when someone else can install it, run it
+and check the results; positive strategy returns are not a release requirement.
 
 | Priority | Deliverable |
 |---|---|

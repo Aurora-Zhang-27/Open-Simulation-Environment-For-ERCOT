@@ -17,24 +17,25 @@
     "canonical_rule": "ecrs-1h-discharge-reservation-v1",
     "comparison_rule": "sensitivity-0.25h-discharge-reservation-v1",
     "mpc_horizon_steps": 12,
+    "mpc_tie_break_usd_per_mwh": 0.001,
     "publication_lag_minutes": 5,
     "publication_lag_verified": false,
     "price_basis": "HB_HUBAVG_5min_LMP_MCPC_proxy",
     "as_deployment": "none",
     "software": {
-      "python": "3.13.5",
+      "python": "3.13.17",
       "numpy": "2.2.6",
       "pandas": "2.3.3"
     },
     "dependency_versions": {
       "scipy": "1.15.3",
-      "gymnasium": "1.2.3",
+      "gymnasium": "1.4.0",
       "pyarrow": "26.0.0"
     },
     "code_sha256": {
-      "rtcb_gym/experimental/ecrs.py": "7dcfcaa9c3dc504b23b24b34b1e4774bf6816c707b2faed189e69663fef3dd7b",
+      "rtcb_gym/experimental/ecrs.py": "12f888cb78b33eb495244e94953255de1a444ddf58b5309c53c4f3141ca2a386",
       "rtcb_gym/battery.py": "a3ece8bf984bf0d0dd960ef840565758712a8670aebf47d6e8163794ef0c9ab9",
-      "scripts/run_ecrs_gate.py": "82c8ef34739bc4e9d239103fe379b95cc955fce9a6d7a7b7c1e34a5c74ea2aa1"
+      "scripts/run_ecrs_gate.py": "5a497d9365ac8eac41188b3892dfbc00dc22b89bd1642215666fe9117131b251"
     },
     "input_files": [
       {
@@ -170,8 +171,8 @@
     {
       "policy": "energy_mpc",
       "intervals": 864,
-      "revenue_proxy_usd": 2075.6976907879252,
-      "energy_proxy_usd": 4732.455849328525,
+      "revenue_proxy_usd": 2066.0506319643955,
+      "energy_proxy_usd": 4722.808790504995,
       "ecrs_proxy_usd": 0.0,
       "degradation_usd": 2656.7581585405997,
       "clipped_ecrs_intervals": 0,
@@ -182,25 +183,25 @@
     {
       "policy": "ecrs_mpc_1h",
       "intervals": 864,
-      "revenue_proxy_usd": 2137.360261712818,
-      "energy_proxy_usd": 4749.364278477133,
-      "ecrs_proxy_usd": 37.45755598748383,
-      "degradation_usd": 2649.4615727517976,
+      "revenue_proxy_usd": 2125.977374555012,
+      "energy_proxy_usd": 4739.126327473146,
+      "ecrs_proxy_usd": 37.288647096025244,
+      "degradation_usd": 2650.437600014159,
       "clipped_ecrs_intervals": 0,
       "clipped_energy_intervals": 0,
-      "ecrs_shortfall_mw_intervals": 1.5729147499755367e-13,
+      "ecrs_shortfall_mw_intervals": 1.7336679089421895e-13,
       "terminal_soc": 0.5000000000000001
     },
     {
       "policy": "ecrs_mpc_0.25h_executed_under_1h",
       "intervals": 864,
-      "revenue_proxy_usd": 2430.2816235082764,
-      "energy_proxy_usd": 4944.206048510245,
-      "ecrs_proxy_usd": 46.33483045927839,
-      "degradation_usd": 2560.2592554612456,
-      "clipped_ecrs_intervals": 154,
+      "revenue_proxy_usd": 2439.047470010603,
+      "energy_proxy_usd": 4954.149470055279,
+      "ecrs_proxy_usd": 46.133282678930925,
+      "degradation_usd": 2561.2352827236064,
+      "clipped_ecrs_intervals": 153,
       "clipped_energy_intervals": 0,
-      "ecrs_shortfall_mw_intervals": 6723.610920677551,
+      "ecrs_shortfall_mw_intervals": 6662.777587344217,
       "terminal_soc": 0.5
     },
     {
@@ -209,10 +210,10 @@
       "revenue_proxy_usd": 24425.1065655578,
       "energy_proxy_usd": 28013.05524144209,
       "ecrs_proxy_usd": 130.81492168336962,
-      "degradation_usd": 3718.7635975676662,
+      "degradation_usd": 3718.7635975676667,
       "clipped_ecrs_intervals": 0,
       "clipped_energy_intervals": 0,
-      "ecrs_shortfall_mw_intervals": 3.211653165635653e-12,
+      "ecrs_shortfall_mw_intervals": 3.247180302423658e-12,
       "terminal_soc": 0.5,
       "mip_gap": 0.0
     },
@@ -220,12 +221,12 @@
       "policy": "oracle_0.25h",
       "intervals": 864,
       "revenue_proxy_usd": 24430.793171111414,
-      "energy_proxy_usd": 28012.205312039394,
-      "ecrs_proxy_usd": 137.3514566396849,
+      "energy_proxy_usd": 28012.205312039398,
+      "ecrs_proxy_usd": 137.35145663968493,
       "degradation_usd": 3718.7635975676662,
       "clipped_ecrs_intervals": 0,
       "clipped_energy_intervals": 0,
-      "ecrs_shortfall_mw_intervals": 7.65965069149388e-12,
+      "ecrs_shortfall_mw_intervals": 5.7980287238024175e-12,
       "terminal_soc": 0.5,
       "mip_gap": 0.0
     }

@@ -21,6 +21,11 @@ from rtcb_gym.experimental.ecrs import (
     DT_HOURS, STEP, ECRSRules, ECRSReservationEnv, FiveMinuteTape, solve_reservation,
 )
 
+# MPC plans often tie (e.g. equal forecast prices); this small cost per MWh
+# of activity picks the same plan on every solver version. It is a tenth of
+# the 0.01 USD/MWh price tick. Oracles use none and stay exact.
+MPC_TIE_BREAK_USD_PER_MWH = 1e-3
+
 
 def profile_prices(root: Path) -> tuple[pd.DataFrame, dict]:
     """Audit full input files before any panel selection; no filling or dropping."""
@@ -44,6 +49,8 @@ def profile_prices(root: Path) -> tuple[pd.DataFrame, dict]:
         if not frames:
             raise FileNotFoundError(f"no {kind} Parquet files under {root}")
         combined = pd.concat(frames).sort_index()
+        # pandas 3 keeps the file's time unit; compare indexes on one unit.
+        combined.index = combined.index.as_unit("ns")
         if combined.index.has_duplicates:
             raise ValueError(f"duplicate keys across {kind} files")
         tables[kind] = combined
@@ -75,7 +82,7 @@ def mpc_action(obs, info, params, planning_rules, horizon, energy_only=False):
         forecast[:, 1] = 0.
     floor = terminal_floor(params, int(info["steps_remaining"])-n, DT_HOURS)
     plan = solve_reservation(forecast, params, planning_rules, float(obs["soc"][0]),
-                             soc_end_min=floor)
+                             soc_end_min=floor, tie_break_usd_per_mwh=MPC_TIE_BREAK_USD_PER_MWH)
     return plan.actions_mw[0]/params.power_mw
 
 
@@ -133,7 +140,7 @@ def main():
     # Exactly 288 history values plus enough extra rows for the publication lag.
     history_lo=lo-pd.Timedelta(days=1)-int(np.ceil(args.publication_lag_minutes/5))*STEP
     selected=joined.loc[(joined.index>=history_lo)&(joined.index<hi)].copy()
-    expected=pd.date_range(history_lo,hi,freq=STEP,inclusive="left")
+    expected=pd.date_range(history_lo,hi,freq=STEP,inclusive="left").as_unit("ns")
     if not selected.index.equals(expected) or selected.isna().any().any():
         raise ValueError("panel/history contains missing prices or timestamps; see data_quality.json")
     quality["selected_panel"] = dict(start=str(lo), end_exclusive=str(hi),
@@ -152,6 +159,7 @@ def main():
     lock=dict(analysis_stage="exploratory_third_party_mirror",start=str(lo),end_exclusive=str(hi),
               intervals=len(tape.starts)-start,battery=asdict(p),canonical_rule=canonical.rule_id,
               comparison_rule=relaxed.rule_id,mpc_horizon_steps=args.horizon,
+              mpc_tie_break_usd_per_mwh=MPC_TIE_BREAK_USD_PER_MWH,
               publication_lag_minutes=args.publication_lag_minutes,publication_lag_verified=False,
               price_basis=tape.provenance["price_basis"],as_deployment="none",
               software=dict(python=platform.python_version(),numpy=np.__version__,pandas=pd.__version__),
