@@ -99,4 +99,4 @@ actual settlement cash flow.
 
 Before a real-data AS release, complete the bundle audit, formal settlement
 mapping, explicit data-availability assumptions and a documented replay/import
-entry point. Those remain open in [the blueprint](../BLUEPRINT.md).
+entry point. Those remain open; see [the roadmap](../README.md#roadmap).

@@ -1,6 +1,6 @@
 # Energy + ECRS research gate
 
-Status: experimental, local, unreleased. This adds a small testable model to
+Status: experimental. This adds a small testable model to
 the v0.2.0 source at commit `7586e31095666d7c8e5cc59c7a88b47e73e5c058`.
 The existing energy-only and day-ahead environments are unchanged.
 
@@ -22,6 +22,16 @@ SCED, telemetry, qualification and settlement conformance is still open.
 The comparator's 0.25-hour parameter is labelled a **sensitivity model**.
 It is not the historical pre-RTC+B ECRS rule. In particular, this experiment
 does not equate a 0.25-to-1-hour correction with the entire market redesign.
+
+## Rule sources
+
+The rule documents read for this model (SHA-256 of the downloaded file):
+
+| Document | SHA-256 |
+|---|---|
+| [NPRR1282](https://www.ercot.com/mktrules/issues/NPRR1282) | web page, not hashed |
+| [Nodal Protocols Section 6](https://www.ercot.com/files/docs/2024/06/28/06-082826_Nodal.docx), Adjustment Period and Real-Time Operations | `00180491327f146a48a9ae2fcbdefd7d322ca5273b89eec891d02ae77a43bdae` |
+| [Nodal Protocols Section 9](https://www.ercot.com/files/docs/2023/06/01/09-080126_Nodal.docx), Settlement and Billing | `031ddf86ef8c876a350e35b9dfbe42066bca03c00fb357f73dd5f9bccde5fb92` |
 
 ## Mathematical task
 
