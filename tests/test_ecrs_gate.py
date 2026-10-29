@@ -163,3 +163,28 @@ def test_price_profile_preserves_missingness_and_rejects_join_mismatch(tmp_path)
     pd.DataFrame({"rt_mcpc_ecrs":np.arange(11)},index=index[:-1]).to_parquet(tmp_path/"as_prices/x.parquet")
     with pytest.raises(ValueError,match="timestamps do not match"):
         profile_prices(tmp_path)
+
+
+@pytest.mark.parametrize("unit", ["ns", "us"])
+def test_runner_accepts_complete_panel_in_any_time_unit(tmp_path, monkeypatch, unit):
+    # pandas 3 keeps the file's time unit while date_range defaults to "us";
+    # a complete panel must not be rejected as having missing timestamps.
+    from pathlib import Path
+    import json, sys
+    from types import SimpleNamespace
+    from scripts import run_ecrs_gate as runner
+    index = pd.date_range("2026-02-01T05:50:00Z", "2026-02-03T06:00:00Z", freq="5min",
+                          inclusive="left").as_unit(unit)
+    for kind, col in [("energy_prices", "rt_lmp"), ("as_prices", "rt_mcpc_ecrs")]:
+        (tmp_path/kind).mkdir()
+        pd.DataFrame({col: np.linspace(1., 9., len(index))}, index=index).to_parquet(tmp_path/kind/"x.parquet")
+    monkeypatch.setattr(runner, "solve_reservation",
+                        lambda prices, *a, **k: SimpleNamespace(actions_mw=np.zeros((len(prices), 2))))
+    monkeypatch.chdir(Path(runner.__file__).resolve().parents[1])
+    out = tmp_path/"out"
+    monkeypatch.setattr(sys, "argv", ["run_ecrs_gate.py", "--input-dir", str(tmp_path), "--out-dir", str(out),
+                                      "--start", "2026-02-02", "--end", "2026-02-02", "--skip-oracle"])
+    runner.main()
+    quality = json.loads((out/"data_quality.json").read_text())
+    assert quality["selected_panel"]["evaluated_intervals"] == 288
+    assert quality["selected_panel"]["timestamp_gaps"] == 0

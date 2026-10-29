@@ -44,6 +44,8 @@ def profile_prices(root: Path) -> tuple[pd.DataFrame, dict]:
         if not frames:
             raise FileNotFoundError(f"no {kind} Parquet files under {root}")
         combined = pd.concat(frames).sort_index()
+        # pandas 3 keeps the file's time unit; compare indexes on one unit.
+        combined.index = combined.index.as_unit("ns")
         if combined.index.has_duplicates:
             raise ValueError(f"duplicate keys across {kind} files")
         tables[kind] = combined
@@ -133,7 +135,7 @@ def main():
     # Exactly 288 history values plus enough extra rows for the publication lag.
     history_lo=lo-pd.Timedelta(days=1)-int(np.ceil(args.publication_lag_minutes/5))*STEP
     selected=joined.loc[(joined.index>=history_lo)&(joined.index<hi)].copy()
-    expected=pd.date_range(history_lo,hi,freq=STEP,inclusive="left")
+    expected=pd.date_range(history_lo,hi,freq=STEP,inclusive="left").as_unit("ns")
     if not selected.index.equals(expected) or selected.isna().any().any():
         raise ValueError("panel/history contains missing prices or timestamps; see data_quality.json")
     quality["selected_panel"] = dict(start=str(lo), end_exclusive=str(hi),
