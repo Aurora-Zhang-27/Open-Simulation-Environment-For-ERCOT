@@ -188,3 +188,23 @@ def test_runner_accepts_complete_panel_in_any_time_unit(tmp_path, monkeypatch, u
     quality = json.loads((out/"data_quality.json").read_text())
     assert quality["selected_panel"]["evaluated_intervals"] == 288
     assert quality["selected_panel"]["timestamp_gaps"] == 0
+
+
+def test_tie_break_acts_least_and_latest_without_losing_value():
+    # Four equal zero-price steps to charge in and two equal high-price steps
+    # to sell in: many plans earn exactly the same.
+    p = BatteryParams(power_mw=10, energy_mwh=1, soc_init=0)
+    prices = np.array([[0., 0.]]*4 + [[100., 0.]]*2)
+    exact = solve_reservation(prices, p, ECRSRules(), 0.)
+    plan = solve_reservation(prices, p, ECRSRules(), 0., tie_break_usd_per_mwh=1e-3)
+    energy = plan.actions_mw[:, 0]
+    np.testing.assert_allclose(energy[:2], 0, atol=1e-7)      # no charging before it must
+    assert energy[3] == pytest.approx(-10)                     # last zero-price step is full
+    assert energy[5] == pytest.approx(10)                      # last high-price step is full
+    np.testing.assert_allclose(plan.actions_mw[:, 1], 0, atol=1e-7)  # free reserve not requested
+    assert plan.net_proxy_usd == pytest.approx(exact.net_proxy_usd, abs=1e-7)
+
+
+def test_tie_break_must_be_nonnegative():
+    with pytest.raises(ValueError, match="tie_break"):
+        solve_reservation(np.ones((2, 2)), BatteryParams(), ECRSRules(), 0., tie_break_usd_per_mwh=-1.)

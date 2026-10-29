@@ -229,6 +229,7 @@ class ReservationPlan:
 def solve_reservation(
     prices: np.ndarray, params: BatteryParams, rules: ECRSRules, soc0: float,
     *, soc_end_min: float | None = None, time_limit: float = 60.,
+    tie_break_usd_per_mwh: float = 0.,
 ) -> ReservationPlan:
     """MILP oracle/forecast planner for exactly the reduced environment model.
 
@@ -236,6 +237,15 @@ def solve_reservation(
     Nonzero ECRS excludes charging; discharge + ECRS <= P. The reserve
     inventory inequality uses energy AFTER base dispatch, as does the env.
     Returns only a proven optimal solve (within solver numerical tolerance).
+
+    Ties: many plans can earn the same (e.g. several zero-price steps to
+    charge in, or free reserve), and which one a solver returns can change
+    between solver versions. ``tie_break_usd_per_mwh`` > 0 adds a small cost
+    per MWh of charge, discharge and ECRS: the full amount in the first step,
+    falling linearly to 1/T of it in the last. Equal-profit plans then
+    resolve to the one that acts least and latest. It can also give up at
+    most that amount per MWh of activity, so leave it at 0 for an exact
+    oracle. ``net_proxy_usd`` is always the plan's unpenalized value.
     """
     prices = np.asarray(prices, dtype=float)
     if prices.ndim != 2 or prices.shape[1] != 2 or not len(prices) or not np.isfinite(prices).all():
@@ -258,6 +268,12 @@ def solve_reservation(
     lower[e+T] = max(params.soc_min, end_min)*E
     upper[u:] = 1.
     integ = np.zeros(N); integ[u:] = 1.
+    if not np.isfinite(tie_break_usd_per_mwh) or tie_break_usd_per_mwh < 0:
+        raise ValueError("tie_break_usd_per_mwh must be finite and nonnegative")
+    objective = cost.copy()
+    later = (T - np.arange(T)) / T  # 1 in the first step down to 1/T in the last
+    for start in (c, d, a):
+        objective[start:start+T] += tie_break_usd_per_mwh * later * DT_HOURS
     rows, cols, values, lo, hi = [], [], [], [], []
     def add(entries, lb, ub):
         row = len(lo)
@@ -272,7 +288,7 @@ def solve_reservation(
         add([(a+t, rules.duration_hours/params.eta_discharge), (e+t+1, -1.)],
             -np.inf, -params.soc_min*E)
     matrix = coo_matrix((values, (rows, cols)), shape=(len(lo), N)).tocsc()
-    result = milp(cost, integrality=integ, bounds=Bounds(lower, upper),
+    result = milp(objective, integrality=integ, bounds=Bounds(lower, upper),
                   constraints=LinearConstraint(matrix, lo, hi),
                   options={"time_limit": time_limit, "mip_rel_gap": 0.})
     if result.status != 0:
@@ -280,6 +296,6 @@ def solve_reservation(
     x = result.x
     return ReservationPlan(
         actions_mw=np.column_stack([x[d:d+T] - x[c:c+T], x[a:a+T]]),
-        soc_after=x[e+1:e+T+1]/E, net_proxy_usd=float(-result.fun),
+        soc_after=x[e+1:e+T+1]/E, net_proxy_usd=float(-(cost @ x)),
         mip_gap=float(result.mip_gap),
     )

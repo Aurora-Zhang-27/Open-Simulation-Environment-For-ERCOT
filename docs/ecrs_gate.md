@@ -125,6 +125,12 @@ rerunning the script on the same input files. The default panel is
 85% round-trip efficiency, $2/MWh throughput cost, initial and terminal
 SoC 50%. Policies use a one-hour MPC horizon and past-day price persistence,
 corrected for the observation delay. No forecast parameters are fitted.
+MPC plans often tie (several steps with the same forecast price), and
+different solver versions return different tied plans. The MPC planner
+therefore adds 0.001 USD per MWh of charge, discharge and ECRS, highest in
+the first step, so ties resolve to the plan that acts least and latest
+(`tie_break_usd_per_mwh` in `solve_reservation`). Oracles use no tie-break
+and remain exact.
 
 All causal policies execute in the same one-hour model, including the policy
 that plans with a 0.25-hour assumption. Its inadmissible reserve requests are
