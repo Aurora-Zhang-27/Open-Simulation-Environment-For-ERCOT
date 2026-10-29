@@ -30,3 +30,5 @@ include = ["rtcb_gym*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Tests also exercise repository scripts, outside the installed rtcb_gym package.
+pythonpath = ["."]
