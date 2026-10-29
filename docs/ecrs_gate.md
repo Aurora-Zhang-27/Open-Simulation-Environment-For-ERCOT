@@ -117,7 +117,10 @@ the panel and its preceding history. It never interpolates, fills prices,
 or silently uses the nearest timestamp.
 
 Each run writes a protocol lock **before outcomes**, input hashes, quality
-checks, full per-interval trajectories and summaries. The default panel is
+checks, full per-interval trajectories and summaries. Only the protocol,
+quality checks and summaries are committed: input prices can be recovered
+from the trajectories, so those stay local (git-ignored) and are rebuilt by
+rerunning the script on the same input files. The default panel is
 2026-02-02 through 2026-02-04 Central Time. Battery: 100 MW / 200 MWh,
 85% round-trip efficiency, $2/MWh throughput cost, initial and terminal
 SoC 50%. Policies use a one-hour MPC horizon and past-day price persistence,

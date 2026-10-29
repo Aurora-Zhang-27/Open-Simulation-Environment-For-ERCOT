@@ -16,3 +16,7 @@ data/exports/
 
 # Reproducible offline demo outputs
 results/demo/
+
+# ECRS gate per-interval trajectories (scripts/run_ecrs_gate.py): input prices
+# can be recovered from them, so only summaries and protocols are committed
+results/ecrs_gate/*/*.csv
