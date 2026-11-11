@@ -257,3 +257,76 @@ def fifteen_minute_average(grid: pd.DataFrame) -> pd.Series:
     by = grid["interval_start_utc"].dt.floor("15min")
     counts = values.groupby(by).count()
     return values.groupby(by).mean().where(counts == 3)
+
+
+ADDERS_DATASET = "ercot_lmp_with_adders_by_settlement_point"
+DA_AS_DATASET = "ercot_as_prices"  # hourly day-ahead MCPC of every ancillary service
+DA_AS_REQUIRED = ("interval_start_utc", "market", "ercot_contingency_reserve_service")
+# Statuses whose 5-minute value is a published price in effect for the whole
+# interval. ``imputed``, ``partial`` and ``missing`` are estimates or holes.
+OBSERVED_STATUSES = ("ok", "rerun", "carried")
+
+
+def read_sced_cache(raw_dir: str | Path, dataset: str, key: str) -> pd.DataFrame:
+    """Every cached chunk of (dataset, key), whatever date ranges were
+    downloaded; exact duplicate rows (overlapping chunks) are dropped. Never
+    makes an API request."""
+    files = sorted((Path(raw_dir) / "gridstatusio" / dataset / key).glob("*.parquet"))
+    if not files:
+        raise FileNotFoundError(
+            f"no cached {dataset}/{key} under {raw_dir}; download it first (scripts/download_5min.py)"
+        )
+    return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True).drop_duplicates()
+
+
+def real_time_tape(
+    lmp_raw: pd.DataFrame,
+    adders_raw: pd.DataFrame,
+    mcpc_raw: pd.DataFrame,
+    start_utc: pd.Timestamp,
+    end_utc: pd.Timestamp,
+    max_carry: pd.Timedelta = pd.Timedelta(minutes=60),
+) -> pd.DataFrame:
+    """Five-minute energy and ECRS prices on [start_utc, end_utc) from SCED rows.
+
+    ``energy_price`` = SCED LMP + Real-Time Reliability Deployment Price
+    Adder, ``ecrs_price`` = real-time ECRS MCPC, each the time-weighted price
+    in effect (:func:`five_minute_grid`) on the union SCED clock. ``status``
+    is the worst of the three series' statuses; only rows whose status is in
+    :data:`OBSERVED_STATUSES` are published prices. Nothing is dropped or
+    filled here: callers decide what to do with the other rows.
+    """
+    lmp, _ = sced_series(lmp_raw, "lmp")
+    rtrdpa, _ = sced_series(adders_raw, "rtrdpa")
+    mcpc, _ = sced_series(mcpc_raw, "mcpc")
+    clock = lmp.index.union(rtrdpa.index).union(mcpc.index)
+    grids = {name: five_minute_grid(s, start_utc, end_utc, clock=clock, max_carry=max_carry)
+             for name, s in (("lmp", lmp), ("rtrdpa", rtrdpa), ("ecrs", mcpc))}
+    rank = {s: i for i, s in enumerate(STATUSES)}  # ok = 0 ... missing = 5
+    codes = np.max([grids[k]["status"].map(rank).to_numpy() for k in grids], axis=0)
+    names = np.array(STATUSES, dtype=object)
+    g = grids["lmp"]
+    return pd.DataFrame({
+        "interval_start_utc": g["interval_start_utc"],
+        "energy_price_usd_per_mwh": g["value"] + grids["rtrdpa"]["value"],
+        "ecrs_price_usd_per_mw_h": grids["ecrs"]["value"],
+        "status": names[codes],
+        "lmp_status": g["status"],
+        "rtrdpa_status": grids["rtrdpa"]["status"],
+        "ecrs_status": grids["ecrs"]["status"],
+        # the last SCED run that priced the interval started before its end
+        "sced_runs": g["sced_runs"],
+    })
+
+
+def day_ahead_ecrs_prices(raw: pd.DataFrame) -> pd.Series:
+    """Hourly day-ahead ECRS clearing price (USD/MW per hour) by hour start
+    (UTC) from ``ercot_as_prices`` rows. Rows without a price are dropped;
+    the same hour with two different prices raises."""
+    df = pd.DataFrame({
+        "ts": pd.to_datetime(raw["interval_start_utc"], utc=True).dt.as_unit("ns"),
+        "v": pd.to_numeric(raw["ercot_contingency_reserve_service"], errors="coerce").astype("float64"),
+    }).dropna().drop_duplicates().sort_values("ts")
+    if df["ts"].duplicated().any():
+        raise ValueError("day-ahead ECRS prices: one hour with two different prices")
+    return pd.Series(df["v"].to_numpy(), index=pd.DatetimeIndex(df["ts"]), name="da_ecrs_mcpc")

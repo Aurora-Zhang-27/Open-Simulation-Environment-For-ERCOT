@@ -1,0 +1,110 @@
+{
+  "grain": "one five-minute UTC interval",
+  "file_profiles": [
+    {
+      "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20260120T0600_20260201T0000.parquet",
+      "sha256": "d943f6133d4f61b423c83f0531bac31cca30241f678ff72d39e93556ab3e19ec",
+      "rows": 3447
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20260201T0000_20260206T0600.parquet",
+      "sha256": "0583d4ed205dc37b8cfbc4c731fb0b78aefa5cf5325bd67a20c9088019fceef7",
+      "rows": 1557
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20260701T0500_20260801T0000.parquet",
+      "sha256": "7b0ad559a2bc3848b9a0b44d73427f5c76871cf952ff7b8faee5bc11a0a681da",
+      "rows": 8921
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20260801T0000_20260901T0000.parquet",
+      "sha256": "75cb681a132a1243c59d56c80018287752a88301c9737571506b0049e510841b",
+      "rows": 9004
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20260901T0000_20261001T0000.parquet",
+      "sha256": "086960c7d144d3eb9c67ddd1f1c20e460ad3a49324d044edd8404eb8c8fa0ca3",
+      "rows": 8753
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20261001T0000_20261025T0500.parquet",
+      "sha256": "0f932d215c746434ded37ebf1eaf588ddfbf407f155b5a9bff26dd4fd6205914",
+      "rows": 7038
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20260120T0600_20260201T0000.parquet",
+      "sha256": "8acc5adc309bfb4f4b72900a18b132f8e616d9f6ec103efea05877ab53f8d821",
+      "rows": 3442
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20260201T0000_20260206T0600.parquet",
+      "sha256": "aaca0f8bd48427894e813f414293d5ffaa876a01ca92bf41047d3532e80980ac",
+      "rows": 1557
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20260701T0500_20260801T0000.parquet",
+      "sha256": "b2b8dabdace67d2194de77a58c784728e226e65b2c1f844b354e7776e820b7ed",
+      "rows": 8918
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20260801T0000_20260901T0000.parquet",
+      "sha256": "03ddaf42e91f5660341822365ddec52ee0cd142d0c2d42fbed4cf8d6cb3a6c4c",
+      "rows": 9002
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20260901T0000_20261001T0000.parquet",
+      "sha256": "6acb7abafa11c41cc390dc0bcfd85fcd29f0d58406baa8a4953a77ba8709bb62",
+      "rows": 8753
+    },
+    {
+      "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20261001T0000_20261025T0500.parquet",
+      "sha256": "823bf317c4960fbce1bbadcd19444225413558359cc13a6dbd47908cbe771699",
+      "rows": 7035
+    },
+    {
+      "file": "gridstatusio/ercot_mcpc_sced/ECRS/20260120T0600_20260201T0000.parquet",
+      "sha256": "cbdb3da96c427011047971241bb0edc6d29dff022a79a9508f5b7e999d23fd9a",
+      "rows": 3447
+    },
+    {
+      "file": "gridstatusio/ercot_mcpc_sced/ECRS/20260201T0000_20260206T0600.parquet",
+      "sha256": "ab75be5e1b092cd10f193133267d946bc0238aefc9f1436f38c8d6cd5d7d0d21",
+      "rows": 1557
+    },
+    {
+      "file": "gridstatusio/ercot_mcpc_sced/ECRS/20260701T0500_20260801T0000.parquet",
+      "sha256": "db4b4a78c6f5b19fefa02f1ea53857c6eec6f25fd7e94539e8539889ab07999d",
+      "rows": 8921
+    },
+    {
+      "file": "gridstatusio/ercot_mcpc_sced/ECRS/20260801T0000_20260901T0000.parquet",
+      "sha256": "0bcf59e9e9e96cf1b8e6f98d86c29ed43ab04b9cf7f9afee386a9630334bd54f",
+      "rows": 9004
+    },
+    {
+      "file": "gridstatusio/ercot_mcpc_sced/ECRS/20260901T0000_20261001T0000.parquet",
+      "sha256": "5022349f5d5df0d8b77d663399d23a19816938ccd2c6009c4c964a910973fe6b",
+      "rows": 8753
+    },
+    {
+      "file": "gridstatusio/ercot_mcpc_sced/ECRS/20261001T0000_20261025T0500.parquet",
+      "sha256": "7a0ee0f6cb9e3c4b046025b414c56dc0073a280c430bf00a44d1cd62deebdfe7",
+      "rows": 7038
+    }
+  ],
+  "rows": 1153,
+  "status_counts": {
+    "ok": 1125,
+    "rerun": 28
+  },
+  "missing_policy": "rows that are not a published price in effect (imputed, partial, missing) are treated as missing; a panel containing one is skipped, never filled",
+  "authority": "Grid Status API copy of ERCOT SCED reports; data provided by Grid Status",
+  "energy_price": "SCED LMP + Real-Time Reliability Deployment Price Adder, time-weighted",
+  "ecrs_price": "real-time ECRS MCPC (ercot_mcpc_sced), time-weighted",
+  "selected_panels": {
+    "requested": 1,
+    "run": 1,
+    "skipped": [],
+    "evaluated_intervals": 864
+  }
+}
