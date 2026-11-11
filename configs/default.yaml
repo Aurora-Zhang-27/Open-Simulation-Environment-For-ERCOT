@@ -71,3 +71,32 @@ day_ahead:
   decision_time: "10:00"          # DAM offer deadline, local time on the day before
   history_days: 7                 # days of past prices in the day-ahead context
   expected_sha256: ee0fd9974f117b07e957b114bd973f2a7890356e02040221b690fae5f344cfe7  # HB_WEST day-ahead, 2025-12-05 .. 2026-10-24
+
+# Five-minute energy + ECRS (scripts/run_market.py). Needs the SCED cache of
+# scripts/download_5min.py for the scored splits.
+energy_ecrs:
+  duration_hours: 1.0             # ECRS duration requirement (NPRR1282)
+  history_len: 288                # one day of five-minute prices in the observation
+  # Every day starts and ends half full: an empty battery holds no reserve.
+  soc_init: 0.5
+  soc_terminal_min: 0.5
+  mpc:
+    persistence_horizon_steps: 12 # one hour, as in the ECRS gate
+    day_ahead_horizon_steps: 288  # to the end of the published day-ahead prices
+    day_ahead_replan_every: 3     # re-solve every 15 minutes
+
+# Offer-curve actions (real-time table): the same rolling threshold search
+# as above, with the thresholds used as offer prices.
+
+# Cross-day arbitrage (results/<hub>/cross_day): two-settlement with every
+# episode starting and ending half full, as one-day episodes and as episodes
+# of episode_days consecutive days in which the SoC carries over midnight.
+cross_day:
+  soc_init: 0.5
+  soc_terminal_min: 0.5
+  episode_days: 7
+
+# Battery duration sensitivity (results/<hub>/sensitivity): the same power,
+# other energy capacities.
+sensitivity:
+  energy_mwh: [100.0, 200.0, 400.0]

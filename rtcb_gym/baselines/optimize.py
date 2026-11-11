@@ -15,6 +15,11 @@ The LP relaxation may charge and discharge in the same interval, which can
 pay at very negative prices (it burns energy through losses). A single
 battery cannot do that, so if it happens we re-solve as a MILP with one
 binary per interval. Both use HiGHS via SciPy and are deterministic.
+
+Horizons longer than ``DENSE_MAX_STEPS`` (multi-day episodes, five-minute
+steps) use the same problem written with one stored-energy variable per
+interval and sparse matrices; shorter ones keep the original dense form, so
+published single-day results do not move.
 """
 
 from __future__ import annotations
@@ -23,10 +28,12 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, linprog, milp
+from scipy.sparse import coo_matrix
 
 from rtcb_gym.battery import BatteryParams
 
 SIMULTANEOUS_TOL_MW = 1e-6
+DENSE_MAX_STEPS = 200
 
 
 @dataclass(frozen=True)
@@ -53,6 +60,9 @@ def solve_dispatch(
     E, P, deg = params.energy_mwh, params.power_mw, params.degradation_cost_usd_per_mwh
     eta_c, eta_d = params.eta_charge, params.eta_discharge
     s0 = min(max(soc0, params.soc_min), params.soc_max) * E
+    if T > DENSE_MAX_STEPS:
+        end = params.soc_terminal_min if soc_end_min is None else soc_end_min
+        return _solve_long(p, params, s0, dt_hours, max(end, params.soc_min))
 
     # x = [c_0..c_{T-1}, d_0..d_{T-1}]; minimise -revenue.
     cost = np.concatenate([(p + deg) * dt_hours, -(p - deg) * dt_hours])
@@ -99,3 +109,53 @@ def _solve_milp(cost: np.ndarray, a_ub: np.ndarray, b_ub: np.ndarray, T: int, P:
     if res.status != 0:
         raise RuntimeError(f"dispatch MILP failed: {res.message}")
     return res.x[: 2 * T]
+
+
+def _solve_long(p: np.ndarray, params: BatteryParams, s0: float, dt_hours: float, end_min: float) -> DispatchPlan:
+    """The same problem with variables [c, d, s_1..s_T, u] and sparse rows."""
+    T = p.size
+    E, P, deg = params.energy_mwh, params.power_mw, params.degradation_cost_usd_per_mwh
+    eta_c, eta_d = params.eta_charge, params.eta_discharge
+    c, d, s, u = 0, T, 2 * T, 3 * T
+    cost = np.zeros(4 * T)
+    cost[c:d] = (p + deg) * dt_hours
+    cost[d:s] = -(p - deg) * dt_hours
+    lower = np.zeros(4 * T)
+    upper = np.concatenate([np.full(2 * T, P), np.full(T, params.soc_max * E), np.ones(T)])
+    lower[s:u] = params.soc_min * E
+    lower[u - 1] = end_min * E
+    t = np.arange(T)
+    # s_t - s_(t-1) - eta_c dt c_t + dt/eta_d d_t = 0   (s_0 is the constant s0)
+    rows = np.concatenate([t, t[1:], t, t])
+    cols = np.concatenate([s + t, s + t[1:] - 1, c + t, d + t])
+    vals = np.concatenate([np.ones(T), -np.ones(T - 1), np.full(T, -eta_c * dt_hours), np.full(T, dt_hours / eta_d)])
+    rhs = np.zeros(T)
+    rhs[0] = s0
+    balance = LinearConstraint(coo_matrix((vals, (rows, cols)), shape=(T, 4 * T)).tocsc(), rhs, rhs)
+
+    def solve(binary: bool) -> np.ndarray:
+        constraints, integrality = [balance], np.zeros(4 * T)
+        up = upper.copy()
+        if binary:  # c_t <= P u_t, d_t <= P (1 - u_t)
+            mode = coo_matrix(
+                (np.concatenate([np.ones(T), np.full(T, -P), np.ones(T), np.full(T, P)]),
+                 (np.concatenate([t, t, T + t, T + t]), np.concatenate([c + t, u + t, d + t, u + t]))),
+                shape=(2 * T, 4 * T),
+            ).tocsc()
+            constraints.append(LinearConstraint(mode, -np.inf, np.concatenate([np.zeros(T), np.full(T, P)])))
+            integrality[u:] = 1
+        else:
+            up[u:] = 0.0
+        res = milp(cost, constraints=constraints, integrality=integrality, bounds=Bounds(lower, up))
+        if res.status != 0:
+            raise RuntimeError(f"dispatch {'MILP' if binary else 'LP'} failed: {res.message}")
+        return res.x
+
+    x = solve(False)
+    used_milp = bool(np.any(np.minimum(x[c:d], x[d:s]) > SIMULTANEOUS_TOL_MW))
+    if used_milp:
+        x = solve(True)
+    return DispatchPlan(
+        power_mw=np.clip(x[d:s] - x[c:d], -P, P), soc=x[s:u] / E,
+        revenue_usd=float(-(cost @ x)), used_milp=used_milp,
+    )

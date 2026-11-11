@@ -166,17 +166,19 @@ def fit_rolling_threshold_rule(
     high_quantiles: Sequence[float],
     window_days: int = 30,
     min_window_days: int = 7,
+    cls: type[RollingThresholdRule] | None = None,
 ) -> tuple[RollingThresholdRule, list[dict[str, float]]]:
     """Pick the quantile pair with the highest revenue on the training split.
 
     Each candidate runs on ``train_env``; its thresholds still come only from
     the prices before each training day. Returns a fresh rule with the best
-    pair and the full search table.
+    pair and the full search table. ``cls`` is the rule to fit (default
+    :class:`RollingThresholdRule`; a subclass for other action modes).
     """
     from rtcb_gym.evaluation import run_policy
 
     def make(ql: float, qh: float) -> RollingThresholdRule:
-        return RollingThresholdRule(
+        return (cls or RollingThresholdRule)(
             prices, ql, qh, train_env.battery_params, train_env.obs_layout, train_env.dt_hours,
             window_days=window_days, min_window_days=min_window_days, tz=train_env.tz,
         )

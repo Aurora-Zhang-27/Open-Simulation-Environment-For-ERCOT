@@ -94,8 +94,6 @@ def test_no_day_ahead_position_equals_real_time_only(rt, da):
 
 
 def test_two_settlement_needs_one_day_episodes_and_the_same_hub(rt, da):
-    with pytest.raises(ValueError, match="one operating day"):
-        env2s(rt, da, episode_days=2)
     with pytest.raises(ValueError, match="HB_WEST"):
         env2s(rt, make_da_prices(location="HB_HOUSTON"))
 

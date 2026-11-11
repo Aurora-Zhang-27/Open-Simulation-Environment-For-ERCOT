@@ -36,8 +36,8 @@ SoC at the episode edges
     as clipped with reason ``soc_terminal``.
 
 Two-settlement (pass ``da_prices``)
-    Episodes are one operating day. Before it starts, the day-ahead decision
-    for that day is taken (see :mod:`rtcb_gym.day_ahead` for the timeline
+    Before each operating day of the episode, the day-ahead decision for
+    that day is taken (see :mod:`rtcb_gym.day_ahead` for the timeline
     and what is known): an hourly schedule in MW, from
     ``reset(options={"da_schedule": ...})``, else from ``day_ahead_policy``
     (called with :meth:`day_ahead_context`), else zero. It is clipped to
@@ -52,6 +52,37 @@ Two-settlement (pass ``da_prices``)
     ``da_price_ahead`` (USD/MWh), ``da_award_ahead`` (award / power_mw) and
     ``da_ahead_mask`` (1 inside the day). All of them are known at t: D's
     day-ahead results are published the afternoon before.
+
+    In an episode of several days, day D+1's day-ahead prices and awards
+    enter these blocks when they are published (``da_publish_time`` on D,
+    default 13:30 local), not before. Every day's award is checked against
+    what the battery could deliver from ``soc_init`` (a fixed position
+    limit: the award is financial), so the bound stays exact.
+
+Options beyond the v0.2 setting (all off by default)
+    ``dt_hours=1/12``
+        Five-minute dispatch. ``prices`` are then five-minute prices, and
+        ``settlement_minutes=15`` settles every step at the mean price of
+        its 15-minute interval, as ERCOT settles energy.
+    ``ecrs_prices``
+        Adds ECRS (see :mod:`rtcb_gym.ancillary`): the action gains a second
+        value in [0, 1], the ECRS request as a share of ``power_mw``, clipped
+        to what is left after the energy dispatch. Paid the real-time ECRS
+        price; with ``da_ecrs_prices`` a day-ahead ECRS award is paid the
+        day-ahead price and the real-time deviation from it the real-time
+        price. ``ecrs_deployment`` (share of the award deployed in each
+        interval) makes awards cost energy.
+    ``action_mode="offer"``
+        The action is an offer curve instead of a power: ``[sell share, sell
+        price, buy share, buy price]``. The battery discharges the sell
+        share if the interval's price turns out at or above the sell price,
+        charges the buy share if it is at or below the buy price, else
+        idles. The agent still does not see the price; the market applies
+        the curve to it, as SCED does with an offer. Prices are limited to
+        ERCOT's offer floor and cap (-250 and 5,000 USD/MWh); a sell price
+        at the floor or a buy price at the cap clears at any price.
+    ``obs_lag_steps``
+        Prices become visible that many steps late.
 """
 
 from __future__ import annotations
@@ -64,18 +95,57 @@ import gymnasium as gym
 import numpy as np
 import pandas as pd
 
+from rtcb_gym.ancillary import ECRSRules, reservation_step
 from rtcb_gym.battery import BatteryParams, battery_step, terminal_floor
-from rtcb_gym.data.clean import DA_INTERVAL, ERCOT_TZ, INTERVAL, intervals_per_day, to_date
-from rtcb_gym.day_ahead import DA_AHEAD, DayAheadContext, build_context, day_hours_utc, feasible_day_ahead
+from rtcb_gym.data.clean import DA_INTERVAL, ERCOT_TZ, intervals_per_day, to_date
+from rtcb_gym.day_ahead import (
+    DayAheadBid,
+    DayAheadContext,
+    build_context,
+    clear_bid,
+    day_hours_utc,
+    decision_time_utc,
+    feasible_day_ahead,
+    feasible_day_ahead_with_ecrs,
+)
 from rtcb_gym.settlement import settle_real_time, settle_two_settlement
 
 ACTION_TOL = 1e-6  # float32 round-off allowance on the [-1, 1] action bounds
+# ERCOT energy offer floor and system-wide offer cap (USD/MWh): the range of
+# the prices in an offer-curve action.
+OFFER_FLOOR, OFFER_CAP = -250.0, 5000.0
+STEP_MINUTES = {0.25: 15, 1 / 12: 5}
 
 
 def _time_features(local: pd.DatetimeIndex) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     minutes = local.hour.to_numpy() * 60 + local.minute.to_numpy()
     angle = 2 * np.pi * minutes / 1440.0
     return np.sin(angle), np.cos(angle), local.day_of_week.to_numpy()
+
+
+def _series(x: pd.DataFrame | pd.Series, what: str) -> pd.Series:
+    """A price table (processed schema) or a Series indexed by interval start."""
+    if isinstance(x, pd.DataFrame):
+        x = pd.Series(x["price_usd_per_mwh"].to_numpy(dtype=np.float64),
+                      index=pd.DatetimeIndex(x["interval_start_utc"]))
+    idx = pd.DatetimeIndex(x.index)
+    if idx.tz is None:
+        raise ValueError(f"{what} must be indexed by timezone-aware interval starts")
+    out = pd.Series(x.to_numpy(dtype=np.float64), index=idx.tz_convert("UTC").as_unit("ns")).sort_index()
+    if out.index.has_duplicates:
+        raise ValueError(f"duplicate interval starts in {what}")
+    return out
+
+
+def _align(source: pd.Series, target_ns: np.ndarray) -> np.ndarray:
+    """Values of ``source`` at the given interval starts (NaN where absent)."""
+    src = source.index.asi8
+    idx = np.searchsorted(src, target_ns)
+    ok = idx < len(src)
+    ok[ok] = src[idx[ok]] == target_ns[ok]
+    out = np.full(len(target_ns), np.nan)
+    out[ok] = source.to_numpy()[idx[ok]]
+    return out
 
 
 class RTCBEnv(gym.Env):
@@ -95,16 +165,32 @@ class RTCBEnv(gym.Env):
         day_ahead_policy: Callable[[DayAheadContext], Any] | None = None,
         da_decision_time: str = "10:00",
         da_history_days: int = 7,
+        da_publish_time: str = "13:30",
+        action_mode: str = "power",
+        settlement_minutes: int | None = None,
+        ecrs_prices: pd.DataFrame | pd.Series | None = None,
+        ecrs_rules: ECRSRules | None = None,
+        ecrs_deployment: pd.Series | None = None,
+        da_ecrs_prices: pd.DataFrame | pd.Series | None = None,
+        obs_lag_steps: int = 0,
     ) -> None:
         super().__init__()
-        if dt_hours != 0.25:
-            raise ValueError("v0 supports 15-minute intervals only (dt_hours=0.25)")
+        step = next((m for h, m in STEP_MINUTES.items() if abs(dt_hours - h) < 1e-9), None)
+        if step is None:
+            raise ValueError("dt_hours must be 0.25 (15-minute intervals) or 1/12 (5-minute intervals)")
         if history_len < 1:
             raise ValueError("history_len must be >= 1")
         if episode_days < 1:
             raise ValueError("episode_days must be >= 1")
         if sample not in ("random", "sequential"):
             raise ValueError("sample must be 'random' or 'sequential'")
+        if action_mode not in ("power", "offer"):
+            raise ValueError("action_mode must be 'power' or 'offer'")
+        if obs_lag_steps < 0:
+            raise ValueError("obs_lag_steps must be >= 0")
+        settlement_minutes = step if settlement_minutes is None else int(settlement_minutes)
+        if settlement_minutes not in (step, 15):
+            raise ValueError(f"settlement_minutes must be {step} (each step) or 15")
         locations = prices["location"].unique()
         if len(locations) != 1:
             raise ValueError(f"prices must hold exactly one location, got {list(locations)}")
@@ -112,10 +198,15 @@ class RTCBEnv(gym.Env):
         self.battery_params = battery or BatteryParams()
         self.history_len = int(history_len)
         self.episode_days = int(episode_days)
-        self.dt_hours = float(dt_hours)
+        self.dt_hours = step / 60
         self.tz = tz
         self.sample = sample
         self.location = str(locations[0])
+        self.action_mode = action_mode
+        self.obs_lag_steps = int(obs_lag_steps)
+        self.settlement_minutes = settlement_minutes
+        self._interval = pd.Timedelta(minutes=step)
+        self._steps_per_day = 24 * 60 // step  # of a normal day: DA look-ahead length
 
         df = prices.sort_values("interval_start_utc").reset_index(drop=True)
         ts = pd.DatetimeIndex(df["interval_start_utc"]).as_unit("ns")
@@ -124,33 +215,53 @@ class RTCBEnv(gym.Env):
         self._ts = ts
         self._ts_ns = ts.asi8
         self._price = df["price_usd_per_mwh"].to_numpy(dtype=np.float64)
+        self._settle = self._settlement_price(self._price)
         local = ts.tz_convert(tz)
         self._tod_sin, self._tod_cos, self._dow = _time_features(local)
 
+        self.ecrs = ecrs_prices is not None
+        self.ecrs_rules = ecrs_rules or ECRSRules()
+        self._deploy: np.ndarray | None = None
+        if self.ecrs:
+            self._ecrs_series = _series(ecrs_prices, "ecrs_prices")
+            self._ecrs_price = _align(self._ecrs_series, self._ts_ns)
+            self._ecrs_settle = self._settlement_price(self._ecrs_price)
+            if ecrs_deployment is not None:
+                self._deploy = _align(_series(ecrs_deployment, "ecrs_deployment"), self._ts_ns)
+                known = self._deploy[~np.isnan(self._deploy)]
+                if known.size and (known.min() < 0 or known.max() > 1):
+                    raise ValueError("ecrs_deployment must be a share in [0, 1]")
+        elif ecrs_deployment is not None or da_ecrs_prices is not None:
+            raise ValueError("ecrs_deployment and da_ecrs_prices need ecrs_prices")
+
         self.two_settlement = da_prices is not None
+        self.da_ecrs = da_ecrs_prices is not None
         self.day_ahead_policy = day_ahead_policy
         self.da_decision_time = da_decision_time
+        self.da_publish_time = da_publish_time
         self.da_history_days = int(da_history_days)
+        if self.da_ecrs and not self.two_settlement:
+            raise ValueError("da_ecrs_prices needs da_prices (two-settlement mode)")
         if self.two_settlement:
-            if self.episode_days != 1:
-                raise ValueError("two-settlement episodes are one operating day (episode_days=1)")
             da_locations = list(da_prices["location"].unique())
             if da_locations != [self.location]:
                 raise ValueError(f"da_prices must be for {self.location}, got {da_locations}")
-            da = da_prices.sort_values("interval_start_utc")
-            da_ts = pd.DatetimeIndex(da["interval_start_utc"]).as_unit("ns")
-            if da_ts.has_duplicates:
+            if da_prices["interval_start_utc"].duplicated().any():
                 raise ValueError("duplicate interval_start_utc in da_prices")
-            da_price = da["price_usd_per_mwh"].to_numpy(dtype=np.float64)
-            self._da_series = pd.Series(da_price, index=da_ts)
+            self._da_series = _series(da_prices, "da_prices")
             self._rt_series = pd.Series(self._price, index=ts)
             # day-ahead price of each real-time interval's hour (NaN if missing)
             hour_ns = (self._ts_ns // DA_INTERVAL.value) * DA_INTERVAL.value
-            idx = np.searchsorted(da_ts.asi8, hour_ns)
-            ok = idx < len(da_ts)
-            ok[ok] = da_ts.asi8[idx[ok]] == hour_ns[ok]
-            self._da_price_rt = np.full(len(ts), np.nan)
-            self._da_price_rt[ok] = da_price[idx[ok]]
+            self._da_price_rt = _align(self._da_series, hour_ns)
+            if self.da_ecrs:
+                self._da_ecrs_series = _series(da_ecrs_prices, "da_ecrs_prices")
+                self._da_ecrs_rt = _align(self._da_ecrs_series, hour_ns)
+            # when each interval's day-ahead results are published: the day before, local time
+            publish = {}
+            for d in np.unique(np.array(local.date)):
+                publish[d] = decision_time_utc(d, da_publish_time, tz).as_unit("ns").value
+            self._da_known_from = np.array([publish[d] for d in local.date], dtype=np.int64)
+        self._day_rows: dict[dt.date, tuple[int, int]] = {}
         self._episodes, self.excluded_days = self._find_episodes(local, days)
         if not self._episodes:
             raise ValueError("no usable episode days (check gaps and history_len)")
@@ -170,20 +281,40 @@ class RTCBEnv(gym.Env):
             "day_of_week": slice(3, 10),
             "prices": slice(10, 10 + n),
         }
-        low = np.concatenate([[0.0], [-1.0, -1.0], np.zeros(7), np.full(n, -np.inf)])
-        high = np.concatenate([[1.0], [1.0, 1.0], np.ones(7), np.full(n, np.inf)])
+        low = [np.array([0.0, -1.0, -1.0]), np.zeros(7), np.full(n, -np.inf)]
+        high = [np.array([1.0, 1.0, 1.0]), np.ones(7), np.full(n, np.inf)]
+
+        def block(name: str, size: int, lo: float, hi: float) -> None:
+            k = sum(len(x) for x in low)
+            self.obs_layout[name] = slice(k, k + size)
+            low.append(np.full(size, lo))
+            high.append(np.full(size, hi))
+
+        a = self._steps_per_day
         if self.two_settlement:
-            k, a = 10 + n, DA_AHEAD
-            self.obs_layout.update(
-                da_price_ahead=slice(k, k + a),
-                da_award_ahead=slice(k + a, k + 2 * a),
-                da_ahead_mask=slice(k + 2 * a, k + 3 * a),
-            )
-            low = np.concatenate([low, np.full(a, -np.inf), np.full(a, -1.0), np.zeros(a)])
-            high = np.concatenate([high, np.full(a, np.inf), np.ones(a), np.ones(a)])
+            block("da_price_ahead", a, -np.inf, np.inf)
+            block("da_award_ahead", a, -1.0, 1.0)
+            block("da_ahead_mask", a, 0.0, 1.0)
+        if self.ecrs:
+            block("ecrs_prices", n, -np.inf, np.inf)
+        if self.da_ecrs:
+            block("da_ecrs_price_ahead", a, -np.inf, np.inf)
+            block("da_ecrs_award_ahead", a, 0.0, 1.0)
+        low, high = np.concatenate(low), np.concatenate(high)
         self._obs_size = len(low)
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float64)
-        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
+        if action_mode == "power":
+            a_low, a_high, self.action_layout = [-1.0], [1.0], {"energy": 0}
+        else:
+            a_low, a_high = [0.0, OFFER_FLOOR, 0.0, OFFER_FLOOR], [1.0, OFFER_CAP, 1.0, OFFER_CAP]
+            self.action_layout = {"sell": 0, "sell_price": 1, "buy": 2, "buy_price": 3}
+        if self.ecrs:
+            self.action_layout["ecrs"] = len(a_low)
+            a_low, a_high = a_low + [0.0], a_high + [1.0]
+        self._a_low, self._a_high = np.array(a_low), np.array(a_high)
+        self.action_space = gym.spaces.Box(
+            low=self._a_low.astype(np.float32), high=self._a_high.astype(np.float32), dtype=np.float32
+        )
 
         self._t: int | None = None
         self._end: int | None = None
@@ -192,8 +323,20 @@ class RTCBEnv(gym.Env):
         self._cursor = 0
         self._ep_first = 0
         self._ep_award = np.zeros(0)  # day-ahead award (MW) of each interval of the episode
+        self._ep_ecrs_award = np.zeros(0)  # day-ahead ECRS award (MW), likewise
 
     # ------------------------------------------------------------------ setup
+    def _settlement_price(self, price: np.ndarray) -> np.ndarray:
+        """The price each step settles at: its own, or the mean of its
+        15-minute interval (NaN if that interval is not complete)."""
+        if self.settlement_minutes == self._interval.value // 60_000_000_000:
+            return price
+        s = pd.Series(price)
+        key = self._ts_ns // pd.Timedelta(minutes=self.settlement_minutes).value
+        group = s.groupby(key)
+        per = self.settlement_minutes * 60_000_000_000 // self._interval.value
+        return group.transform("mean").where(group.transform("count") == per).to_numpy()
+
     def _find_episodes(
         self, local: pd.DatetimeIndex, days: Iterable[str | dt.date] | None
     ) -> tuple[dict[dt.date, tuple[int, int]], dict[str, str]]:
@@ -206,30 +349,55 @@ class RTCBEnv(gym.Env):
         for d, i0, cnt in zip(uniq, first, counts):
             if allowed is not None and d not in allowed:
                 continue
-            if cnt != intervals_per_day(d, self.tz):
-                excluded[str(d)] = f"incomplete day ({cnt}/{intervals_per_day(d, self.tz)} intervals)"
+            expected = intervals_per_day(d, self.tz, self._interval)
+            rows = slice(i0, i0 + cnt)
+            if cnt != expected:
+                excluded[str(d)] = f"incomplete day ({cnt}/{expected} intervals)"
                 continue
-            if self.two_settlement and np.isnan(self._da_price_rt[i0 : i0 + cnt]).any():
+            if np.isnan(self._settle[rows]).any():
+                excluded[str(d)] = "incomplete settlement intervals"
+                continue
+            if self.two_settlement and np.isnan(self._da_price_rt[rows]).any():
                 excluded[str(d)] = "incomplete day-ahead prices"
+                continue
+            if self.ecrs and (np.isnan(self._ecrs_price[rows]).any() or np.isnan(self._ecrs_settle[rows]).any()):
+                excluded[str(d)] = "incomplete ECRS prices"
+                continue
+            if self.da_ecrs and np.isnan(self._da_ecrs_rt[rows]).any():
+                excluded[str(d)] = "incomplete day-ahead ECRS prices"
+                continue
+            if self._deploy is not None and np.isnan(self._deploy[rows]).any():
+                excluded[str(d)] = "incomplete ECRS deployment"
                 continue
             complete[d] = (int(i0), int(i0 + cnt))
         if allowed is not None:
             for d in sorted(allowed - set(uniq)):
                 excluded[str(d)] = "no data"
+        self._day_rows = complete
 
-        n = self.history_len
-        hist_span = n * INTERVAL.value
+        n = self.history_len + self.obs_lag_steps
+        hist_span = n * self._interval.value
         episodes: dict[dt.date, tuple[int, int]] = {}
         for d, (i0, _) in complete.items():
             if i0 < n or self._ts_ns[i0] - self._ts_ns[i0 - n] != hist_span:
                 excluded[str(d)] = f"fewer than {n} contiguous history intervals"
                 continue
-            span = [d + dt.timedelta(days=k) for k in range(self.episode_days)]
+            if self.ecrs and np.isnan(self._ecrs_price[i0 - n : i0]).any():
+                excluded[str(d)] = f"fewer than {n} history intervals of ECRS prices"
+                continue
+            span = self._span(d)
             if all(s in complete for s in span):
                 episodes[d] = (i0, complete[span[-1]][1])
             else:
                 excluded[str(d)] = f"not followed by {self.episode_days - 1} complete days"
         return episodes, dict(sorted(excluded.items()))
+
+    def _span(self, start: dt.date) -> list[dt.date]:
+        return [start + dt.timedelta(days=k) for k in range(self.episode_days)]
+
+    def episode_operating_days(self, start: str | dt.date) -> list[dt.date]:
+        """The operating days of the episode that starts on ``start``."""
+        return self._span(to_date(start))
 
     # -------------------------------------------------------------- gym API
     def reset(
@@ -272,27 +440,110 @@ class RTCBEnv(gym.Env):
         return build_context(
             day, self._rt_series, self._da_series, self.battery_params,
             decision_time=self.da_decision_time, history_days=self.da_history_days, tz=self.tz,
+            interval=self._interval,
+            ecrs=self._ecrs_series if self.ecrs else None,
+            da_ecrs=self._da_ecrs_series if self.da_ecrs else None,
         )
 
-    def _set_day_ahead(self, day: dt.date, schedule: Any) -> dict[str, Any]:
-        hours = day_hours_utc(day, self.tz)
-        if schedule is None and self.day_ahead_policy is not None:
-            schedule = self.day_ahead_policy(self.day_ahead_context(day))
-        if schedule is None:
-            schedule = np.zeros(len(hours))
-        requested = np.asarray(schedule, dtype=np.float64).reshape(-1)
-        if requested.shape != (len(hours),):
-            raise ValueError(f"da_schedule for {day} needs {len(hours)} hourly values, got {requested.size}")
-        award, n_clipped, _ = feasible_day_ahead(requested, self.battery_params, self.battery_params.soc_init)
-        rows = self._ts_ns[self._t : self._end]
-        hour_of_row = (rows - hours.asi8[0]) // DA_INTERVAL.value
-        self._ep_award = award[hour_of_row]
-        return {
-            "da_hour_start_utc": hours,
-            "da_requested_mw": requested,
-            "da_award_mw": award,
+    def _set_day_ahead(self, start: dt.date, schedule: Any) -> dict[str, Any]:
+        """Clear and award the day-ahead bid of every day of the episode.
+
+        ``schedule``: one bid (an hourly array or a
+        :class:`~rtcb_gym.day_ahead.DayAheadBid`), or a list with one bid per
+        operating day. Missing bids come from ``day_ahead_policy``, else are
+        zero. A day's bid uses only what its
+        :meth:`day_ahead_context` holds, so taking all of an episode's
+        decisions here changes nothing about what each one may know.
+        """
+        span = self._span(start)
+        if isinstance(schedule, (list, tuple)) and (
+            len(span) > 1 or (len(schedule) == 1 and np.ndim(schedule[0]) > 0)
+            or (len(schedule) == 1 and isinstance(schedule[0], DayAheadBid))
+        ):
+            bids = list(schedule)
+        elif schedule is None:
+            bids = [None] * len(span)
+        else:
+            bids = [schedule]
+        if len(bids) != len(span):
+            raise ValueError(f"da_schedule needs one bid per operating day ({len(span)}), as a list")
+        p = self.battery_params
+        n_rows = self._end - self._ep_first
+        self._ep_award = np.zeros(n_rows)
+        self._ep_ecrs_award = np.zeros(n_rows)
+        out: dict[str, list] = {k: [] for k in ("hours", "requested", "cleared", "award",
+                                                "ecrs_requested", "ecrs_cleared", "ecrs_award")}
+        n_clipped = 0
+        for day, bid in zip(span, bids):
+            hours = day_hours_utc(day, self.tz)
+            if bid is None and self.day_ahead_policy is not None:
+                bid = self.day_ahead_policy(self.day_ahead_context(day))
+            i0, i1 = self._day_rows[day]
+            hour_of_row = (self._ts_ns[i0:i1] - hours.asi8[0]) // DA_INTERVAL.value
+            first_row = np.searchsorted(hour_of_row, np.arange(len(hours)))
+            da_price = self._da_price_rt[i0:i1][first_row]
+            da_ecrs_price = self._da_ecrs_rt[i0:i1][first_row] if self.da_ecrs else None
+            try:
+                requested, cleared, e_req, e_cleared = clear_bid(bid, da_price, da_ecrs_price)
+            except ValueError as err:
+                if "hourly values" in str(err) and "ECRS" not in str(err):
+                    size = np.size(bid.energy_mw if isinstance(bid, DayAheadBid) else bid)
+                    raise ValueError(
+                        f"da_schedule for {day} needs {len(hours)} hourly values, got {size}"
+                    ) from None
+                raise
+            if self.da_ecrs:
+                award, e_award, clipped, _ = feasible_day_ahead_with_ecrs(
+                    cleared, e_cleared, p, self.ecrs_rules, p.soc_init
+                )
+            else:
+                award, clipped, _ = feasible_day_ahead(cleared, p, p.soc_init)
+                e_award = np.zeros(len(hours))
+            k = i0 - self._ep_first
+            self._ep_award[k : k + (i1 - i0)] = award[hour_of_row]
+            self._ep_ecrs_award[k : k + (i1 - i0)] = e_award[hour_of_row]
+            n_clipped += clipped
+            for key, value in (("hours", hours), ("requested", requested), ("cleared", cleared),
+                               ("award", award), ("ecrs_requested", e_req), ("ecrs_cleared", e_cleared),
+                               ("ecrs_award", e_award)):
+                out[key].append(value)
+        cat = {k: np.concatenate(v) for k, v in out.items() if k != "hours"}
+        hours_all = out["hours"][0]
+        for h in out["hours"][1:]:
+            hours_all = hours_all.append(h)
+        info = {
+            "da_hour_start_utc": hours_all,
+            "da_requested_mw": cat["requested"],
+            "da_cleared_mw": cat["cleared"],
+            "da_award_mw": cat["award"],
             "da_clipped_hours": n_clipped,
         }
+        if self.da_ecrs:
+            info.update(da_ecrs_requested_mw=cat["ecrs_requested"], da_ecrs_cleared_mw=cat["ecrs_cleared"],
+                        da_ecrs_award_mw=cat["ecrs_award"])
+        return info
+
+    def _command(self, a: np.ndarray, price: float) -> tuple[float, float, bool]:
+        """Turn an action into (energy MW commanded, ECRS MW requested,
+        action out of bounds). An offer curve is applied to ``price``."""
+        out = bool(np.any(a < self._a_low - ACTION_TOL) or np.any(a > self._a_high + ACTION_TOL))
+        a = np.clip(a, self._a_low, self._a_high)
+        p_max = self.battery_params.power_mw
+        lay = self.action_layout
+        ecrs = float(a[lay["ecrs"]]) * p_max if self.ecrs else 0.0
+        if self.action_mode == "power":
+            return float(a[0]) * p_max, ecrs, out
+        sell_price, buy_price = float(a[lay["sell_price"]]), float(a[lay["buy_price"]])
+        if buy_price > sell_price:  # a curve cannot buy above the price it sells at
+            buy_price, out = sell_price, True
+        # an offer at the floor, or a bid at the cap, takes any price
+        if price >= sell_price or sell_price <= OFFER_FLOOR:
+            command = float(a[lay["sell"]]) * p_max
+        elif price <= buy_price or buy_price >= OFFER_CAP:
+            command = -float(a[lay["buy"]]) * p_max
+        else:
+            command = 0.0
+        return command, ecrs, out
 
     def step(self, action: Any) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         if self._t is None or self._end is None:
@@ -300,25 +551,37 @@ class RTCBEnv(gym.Env):
         if self._t >= self._end:
             raise RuntimeError("episode is over; call reset()")
         a = np.asarray(action, dtype=np.float64).reshape(-1)
-        if a.size != 1 or not np.isfinite(a[0]):
-            raise ValueError(f"action must be one finite number, got {action!r}")
-        a = float(a[0])
+        if a.size != len(self._a_low) or not np.all(np.isfinite(a)):
+            what = "one finite number" if len(self._a_low) == 1 else f"{len(self._a_low)} finite numbers"
+            raise ValueError(f"action must be {what}, got {action!r}")
         params = self.battery_params
-        action_clipped = a < -1.0 - ACTION_TOL or a > 1.0 + ACTION_TOL
-        command_mw = min(max(a, -1.0), 1.0) * params.power_mw
-
         t = self._t
-        actual, self._soc, binfo = battery_step(
-            params, self._soc, command_mw, self.dt_hours, steps_left=self._end - t
-        )
-        price = float(self._price[t])
+        command_mw, ecrs_request, action_clipped = self._command(a, float(self._price[t]))
+        # what was asked for: the raw power action (before bounds, as in v0.1),
+        # or what the offer curve dispatched at this interval's price
+        requested_mw = float(a[0]) * params.power_mw if self.action_mode == "power" else command_mw
+
+        steps_left = self._end - t
+        deployed = 0.0
+        if self.ecrs:
+            share = None if self._deploy is None else float(self._deploy[t])
+            actual2, self._soc, binfo = reservation_step(
+                params, self.ecrs_rules, self._soc, np.array([command_mw, ecrs_request]), steps_left,
+                dt_hours=self.dt_hours, deployment=share,
+            )
+            actual, ecrs_award, deployed = float(actual2[0]), float(actual2[1]), binfo["deployed_mw"]
+        else:
+            actual, self._soc, binfo = battery_step(params, self._soc, command_mw, self.dt_hours, steps_left=steps_left)
+        delivered = actual + deployed
+        price = float(self._settle[t])
         deg = params.degradation_cost_usd_per_mwh
         if self.two_settlement:
             award = float(self._ep_award[t - self._ep_first])
             da_price = float(self._da_price_rt[t])
-            s = settle_two_settlement(actual, award, self.dt_hours, price, da_price, deg)
+            s = settle_two_settlement(delivered, award, self.dt_hours, price, da_price, deg)
         else:
-            s = settle_real_time(actual, self.dt_hours, price, deg)
+            s = settle_real_time(delivered, self.dt_hours, price, deg)
+        reward = s.net_revenue_usd
 
         if binfo["clipped"]:
             reason = binfo["clip_reason"]
@@ -332,7 +595,7 @@ class RTCBEnv(gym.Env):
             "operating_day": str(self._episode_start),
             "interval_start_utc": self._ts[t],
             "price_usd_per_mwh": price,
-            "requested_power_mw": a * params.power_mw,
+            "requested_power_mw": requested_mw,
             "actual_power_mw": actual,
             "clipped": reason is not None,
             "clip_reason": reason,
@@ -340,15 +603,38 @@ class RTCBEnv(gym.Env):
             "da_revenue_usd": s.da_revenue_usd,
             "rt_revenue_usd": s.rt_revenue_usd,
             "degradation_cost_usd": s.degradation_cost_usd,
-            "reward_usd": s.net_revenue_usd,
+            "reward_usd": reward,
             "storage_discharge_mwh": binfo["storage_discharge_mwh"],
             "soc": self._soc,
             "steps_remaining": self._end - self._t,
         }
+        if self.settlement_minutes != self._interval.value // 60_000_000_000:
+            info["dispatch_price_usd_per_mwh"] = float(self._price[t])
         if self.two_settlement:
             info["da_award_mw"] = award
             info["da_price_usd_per_mwh"] = da_price
-        return self._obs(), float(s.net_revenue_usd), terminated, False, info
+        if self.ecrs:
+            ecrs_price = float(self._ecrs_settle[t])
+            da_ecrs_award = float(self._ep_ecrs_award[t - self._ep_first]) if self.da_ecrs else 0.0
+            da_ecrs_price = float(self._da_ecrs_rt[t]) if self.da_ecrs else 0.0
+            ecrs_da = da_ecrs_award * self.dt_hours * da_ecrs_price
+            ecrs_rt = (ecrs_award - da_ecrs_award) * self.dt_hours * ecrs_price
+            reward += ecrs_da + ecrs_rt
+            info.update(
+                reward_usd=reward,
+                delivered_power_mw=delivered,
+                ecrs_requested_mw=ecrs_request,
+                ecrs_award_mw=ecrs_award,
+                ecrs_clipped=binfo["ecrs_clipped"],
+                ecrs_deployed_mw=deployed,
+                ecrs_price_usd_per_mw_h=ecrs_price,
+                ecrs_revenue_usd=ecrs_da + ecrs_rt,
+                ecrs_da_revenue_usd=ecrs_da,
+                ecrs_rt_revenue_usd=ecrs_rt,
+            )
+            if self.da_ecrs:
+                info.update(da_ecrs_award_mw=da_ecrs_award, da_ecrs_price_usd_per_mw_h=da_ecrs_price)
+        return self._obs(), float(reward), terminated, False, info
 
     # -------------------------------------------------------------- helpers
     def _obs(self) -> np.ndarray:
@@ -356,24 +642,35 @@ class RTCBEnv(gym.Env):
         assert t is not None
         obs = np.zeros(self._obs_size, dtype=np.float64)
         obs[0] = self._soc
-        if t < len(self._ts) and (t == 0 or self._ts_ns[t] - self._ts_ns[t - 1] == INTERVAL.value):
+        if t < len(self._ts) and (t == 0 or self._ts_ns[t] - self._ts_ns[t - 1] == self._interval.value):
             sin, cos, dow = self._tod_sin[t], self._tod_cos[t], self._dow[t]
         else:  # terminal observation after the last row or before a gap
-            nxt = pd.DatetimeIndex([self._ts[t - 1] + INTERVAL]).tz_convert(self.tz)
+            nxt = pd.DatetimeIndex([self._ts[t - 1] + self._interval]).tz_convert(self.tz)
             s, c, w = _time_features(nxt)
             sin, cos, dow = s[0], c[0], w[0]
         obs[1], obs[2] = sin, cos
         obs[3:10] = 0.0
         obs[3 + int(dow)] = 1.0
-        # Settled prices only: intervals t-N .. t-1. Interval t is not visible.
-        obs[10 : 10 + self.history_len] = self._price[t - self.history_len : t]
+        # Settled prices only: intervals t-N .. t-1 (earlier by obs_lag_steps).
+        # Interval t is not visible.
+        lay = self.obs_layout
+        seen = t - self.obs_lag_steps
+        obs[lay["prices"]] = self._price[seen - self.history_len : seen]
+        if self.ecrs:
+            obs[lay["ecrs_prices"]] = self._ecrs_price[seen - self.history_len : seen]
         if self.two_settlement:
-            # Day-ahead prices and awards of intervals t .. t+95 of this day
-            # (published the day before), zero beyond the end of the day.
-            m = min(DA_AHEAD, max(self._end - t, 0))
+            # Day-ahead prices and awards of intervals t .. t+ahead-1 of this
+            # episode, as far as they are published; zero beyond.
+            m = min(self._steps_per_day, max(self._end - t, 0))
+            if m:
+                now = self._ts_ns[t]
+                m = int(np.searchsorted(self._da_known_from[t : t + m], now, side="right"))
             k = t - self._ep_first
-            lay = self.obs_layout
+            p_max = self.battery_params.power_mw
             obs[lay["da_price_ahead"]][:m] = self._da_price_rt[t : t + m]
-            obs[lay["da_award_ahead"]][:m] = self._ep_award[k : k + m] / self.battery_params.power_mw
+            obs[lay["da_award_ahead"]][:m] = self._ep_award[k : k + m] / p_max
             obs[lay["da_ahead_mask"]][:m] = 1.0
+            if self.da_ecrs:
+                obs[lay["da_ecrs_price_ahead"]][:m] = self._da_ecrs_rt[t : t + m]
+                obs[lay["da_ecrs_award_ahead"]][:m] = self._ep_ecrs_award[k : k + m] / p_max
         return obs
