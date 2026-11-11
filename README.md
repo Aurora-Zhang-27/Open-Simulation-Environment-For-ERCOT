@@ -237,7 +237,44 @@ from 2 h to 4 h). The causal strategies capture more of the bound with
 longer duration (Forecast + MPC: 17%, 24%, 31%): with more energy, timing
 errors cost less.
 
-<!-- ENERGY_ECRS -->
+### Five-minute energy + ECRS
+
+New in v0.4: five-minute dispatch, 15-minute settlement, ECRS, both markets
+for both products, HB_WEST, every day starting and ending half full
+([`energy_ecrs.md`](results/hb_west/energy_ecrs.md); 51 validation and 57
+test days). Revenue in USD, the part from ECRS in brackets, and capture
+rate against the first row.
+
+| Strategy | Validation | Test |
+|---|---:|---:|
+| Perfect foresight (DA + RT, energy + ECRS) | 1,071k (52k), 100.0% | 1,753k (148k), 100.0% |
+| Perfect foresight (RT only, energy + ECRS) | 505k (24k), 47.2% | 861k (53k), 49.1% |
+| Perfect foresight (DA + RT, energy only) | 1,040k, 97.1% | 1,673k, 95.5% |
+| Perfect foresight (RT only, energy only) | 489k, 45.6% | 827k, 47.2% |
+| DA schedule, energy + ECRS | 356k (37k), 33.2% | 489k (126k), 27.9% |
+| ECRS MPC on DA prices | 269k (16k), 25.1% | 468k (68k), 26.7% |
+| Energy MPC on DA prices | 261k, 24.3% | 460k, 26.2% |
+| ECRS MPC (persistence, 1 h) | −28k (6k), −2.6% | −19k (10k), −1.1% |
+| Energy MPC (persistence, 1 h) | −29k, −2.7% | −30k, −1.7% |
+
+- **ECRS adds 3–5% to what this battery could earn**: 3.0% and 4.8% with
+  both markets, 3.4% and 4.1% in real time alone. This is under a
+  conservative rule (reserve from the discharge side only, held for one
+  hour, never deployed), so it is not an estimate for a real battery.
+- **A delivered day-ahead schedule gets a real share of its revenue from
+  ECRS** (10% on validation, 26% on test), because an hourly schedule
+  leaves the battery idle and charged for many hours.
+- **Adding ECRS to the real-time MPC is worth 2–3%**, well inside the
+  intervals of the two rows (269k against 261k, 468k against 460k).
+- **The one-hour persistence MPC of the ECRS gate loses money here.** With
+  five-minute dispatch it chases five-minute price moves that the
+  15-minute settlement averages away, and pays degradation for it. It is
+  kept as the link to the gate, not as a baseline to beat.
+- The best causal strategy is at 28–33% of the bound. Closing that gap is
+  the open problem in this setting.
+
+The ECRS numbers follow a reduced model, not ERCOT's complete
+ancillary-service settlement: see [the model and its limits](docs/ecrs_gate.md).
 
 ## Install
 

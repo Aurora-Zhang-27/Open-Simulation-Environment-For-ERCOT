@@ -147,9 +147,10 @@ def table(rows: list[dict]) -> str:
              "|---|---|---:|---:|---:|---:|---:|---:|---:|"]
     for r in rows:
         lo, hi = r["capture_ci95"]
+        interval = "" if r["policy"] == r["bound"] else f" ({lo:.1%} to {hi:.1%})"
         lines.append(
             f"| {r['split']} | {r['policy']} | {r['days']} | {round(r['revenue_usd']) + 0:,} | "
-            f"{round(r['ecrs_revenue_usd']) + 0:,} | {r['capture_rate']:.1%} ({lo:.1%} to {hi:.1%}) | "
+            f"{round(r['ecrs_revenue_usd']) + 0:,} | {r['capture_rate']:.1%}{interval} | "
             f"{r['efc_per_day']:.2f} | {r['ecrs_mean_mw']:.1f} | "
             f"{r['n_clipped']} / {r['n_ecrs_clipped']} / {r['n_da_clipped_hours']} |")
     return "\n".join(lines)
