@@ -266,8 +266,8 @@ rate against the first row.
   leaves the battery idle and charged for many hours.
 - **Adding ECRS to the real-time MPC is worth 2–3%**, well inside the
   intervals of the two rows (269k against 261k, 468k against 460k).
-- **The one-hour persistence MPC of the ECRS gate loses money here.** With
-  five-minute dispatch it chases five-minute price moves that the
+- **The one-hour persistence MPC of the ECRS gate loses money here.** A
+  likely reason (not tested): it trades on five-minute price moves that
   15-minute settlement averages away, and pays degradation for it. It is
   kept as the link to the gate, not as a baseline to beat.
 - The best causal strategy is at 28–33% of the bound. Closing that gap is
