@@ -15,8 +15,10 @@ real-time markets together (two-settlement).
 > - **One trading hub's price** (`HB_WEST` by default, `HB_HOUSTON` also
 >   configured) is the price the battery gets. A real battery settles at its
 >   own resource node.
-> - **Energy only.** Real time, optionally with the day-ahead market. No
->   ancillary services, no fees.
+> - **Energy, optionally with ECRS.** Real time, optionally with the day-ahead
+>   market. ECRS is a reduced model (reserve from the discharge side, full
+>   awards, no deployment unless you supply one). No other ancillary
+>   services, no fees.
 
 ## Start without an API key or GPU
 
@@ -314,11 +316,30 @@ A strategy is a [`Policy`](rtcb_gym/baselines/base.py): `day_ahead(context)`
 returns the hourly bid (or None for no day-ahead position), `reset` starts
 the day, `act` returns the real-time action.
 
+Five-minute dispatch with ECRS, both markets (needs the five-minute data,
+see [below](#five-minute-prices-and-ecrs)):
+
+```python
+from rtcb_gym import DayAheadBid
+
+env = RTCBEnv(
+    rt5, BatteryParams(soc_init=0.5, soc_terminal_min=0.5),
+    dt_hours=1 / 12, settlement_minutes=15, history_len=288,
+    ecrs_prices=ecrs, da_prices=da, da_ecrs_prices=da_ecrs,
+)
+obs, info = env.reset(options={"day": day, "da_schedule": DayAheadBid(energy_mw=bid, ecrs_mw=reserve)})
+obs, reward, terminated, truncated, info = env.step(np.array([0.2, 0.5]))  # energy, ECRS: shares of power_mw
+```
+
+For a learning agent, `ScaledObservation(env)` rescales the price blocks
+of the observation to a bounded range, and `gymnasium.make("RTCBGym-v0",
+prices=rt, ...)` builds the same environment by id.
+
 ## Environment
 
 | | |
 |---|---|
-| Episode | one operating day (96 intervals; 92 or 100 on DST days); `episode_days` makes real-time-only episodes longer |
+| Episode | one operating day (96 intervals; 92 or 100 on DST days); `episode_days` makes episodes longer |
 | Action | `Box(-1, 1, (1,))`, times `power_mw`. **Positive = discharge (sell), negative = charge (buy).** |
 | Observation | SoC; time of day (sin, cos); day of week (one-hot); last 96 settled RT prices. Two-settlement adds the day's DA prices, awards and a mask for the next 96 intervals. Layout in `env.obs_layout` |
 | Reward | net revenue of the interval in USD |
@@ -355,6 +376,26 @@ award is a bet on the day-ahead/real-time spread. Perfect foresight solves
 both parts exactly, so it is still a true upper bound. Tests check the split
 on a full day with random bids and actions, and that no strategy beats the
 bound.
+
+### Options
+
+Everything above is the default. Each option below is off unless you ask
+for it, and each keeps perfect foresight an exact bound (tests replay the
+bound and check that random play never beats it).
+
+| Option | What it does |
+|---|---|
+| `dt_hours=1/12`, `settlement_minutes=15` | Five-minute dispatch. Each step settles at the mean price of its 15-minute interval, as ERCOT settles energy. |
+| `ecrs_prices` | Adds ECRS. The action gains a second value in [0, 1], the reserve requested as a share of `power_mw`. It is clipped to what is left after the energy dispatch: none while charging, discharge + reserve within rated power, and enough stored energy to sustain it for one hour. Paid the real-time ECRS price. [Model and limits](docs/ecrs_gate.md). |
+| `da_ecrs_prices` | A day-ahead ECRS award (`DayAheadBid(ecrs_mw=...)`), paid the day-ahead price; the real-time deviation from it settles at the real-time ECRS price. |
+| `ecrs_deployment` | A share of the award deployed in each interval: delivered on top of the dispatch, paid the energy price, taken from the battery. An input you supply; no result here uses it. |
+| `action_mode="offer"` | The action is an offer curve, `[sell share, sell price, buy share, buy price]`. The battery sells if the interval's price turns out at or above the sell price, buys if it is at or below the buy price, else idles. The agent still never sees the price in advance; the market applies the curve to it. |
+| `DayAheadBid(energy_mw, energy_limit_price)` | Day-ahead bids with limit prices, one or several segments an hour: a sell segment clears if the day-ahead price is at or above its limit, a buy segment if it is at or below. What clears is paid the day-ahead price. |
+| `episode_days > 1` with `da_prices` | Two-settlement episodes of several days: the SoC carries over midnight, each day has its own bid, and day D+1's day-ahead results enter the observation at 13:30 on D. |
+| `obs_lag_steps` | Prices become visible that many steps late. |
+
+The offer curve and the limit prices clear against historical prices: the
+battery is still a price-taker and never moves them.
 
 ### SoC at the start and end of an episode
 
@@ -462,17 +503,21 @@ configs/hb_houston.yaml       the same at HB_HOUSTON (extends default.yaml)
 rtcb_gym/data/fetch.py        download (gridstatusio) with raw cache
 rtcb_gym/data/clean.py        timezone, DST, duplicates, gap report
 rtcb_gym/data/store.py        parquet schema, checksum
-rtcb_gym/data/sced.py         SCED cache and time-weighted input-price reconstruction
+rtcb_gym/data/sced.py         SCED cache, five-minute prices in effect, day-ahead ECRS prices
 rtcb_gym/demo.py              offline CPU example using synthetic prices
-rtcb_gym/experimental/ecrs.py experimental energy + ECRS reservation model
 rtcb_gym/battery.py           physical model
+rtcb_gym/ancillary.py         ECRS reservation rule, feasible step, MILP
 rtcb_gym/settlement.py        money: real-time only and two-settlement
-rtcb_gym/day_ahead.py         day-ahead timeline, context, bid clipping, persistence forecast
-rtcb_gym/env.py               Gymnasium environment
-rtcb_gym/evaluation.py        runs and metrics
-rtcb_gym/baselines/           perfect foresight, threshold rules, MPC, day-ahead strategies
-scripts/                      download_data.py, run_baselines.py, summarize_results.py
-results/<hub>/                real_time.{md,json}, two_settlement.{md,json}
+rtcb_gym/day_ahead.py         day-ahead timeline, context, bids, clearing and clipping
+rtcb_gym/env.py               Gymnasium environment (all options)
+rtcb_gym/wrappers.py          observation scaling for learning agents
+rtcb_gym/evaluation.py        runs, metrics, bootstrap intervals
+rtcb_gym/baselines/           perfect foresight, threshold rules, MPC, day-ahead, offers, ECRS
+rtcb_gym/experimental/ecrs.py the continuous-panel model of the ECRS gate
+scripts/                      download_data.py, download_5min.py, run_baselines.py, run_market.py,
+                              run_ecrs_gate.py, export_5min.py, summarize_results.py
+results/<hub>/                real_time, two_settlement, cross_day, sensitivity, energy_ecrs (.md, .json)
+results/ecrs_gate/            ECRS duration gate: protocols, data checks, summaries
 tests/                        unit tests (synthetic prices only)
 ```
 
@@ -495,19 +540,13 @@ no-look-ahead guarantee and an exact upper bound.
 
 ## Roadmap
 
-The next release is a CPU tool that another user can clone, install and run
-with versioned real data. It is done when someone else can install it, run it
-and check the results; positive strategy returns are not a release requirement.
-
 | Priority | Deliverable |
 |---|---|
-| 1 | Offline installation example and reproducible output artifacts |
-| 2 | Audited real-data import, provenance, statuses and an executable tutorial |
-| 3 | Complete the scoped energy + ECRS constraints, timing and settlement ledger |
-| 4 | Custom-policy tutorial, independent reproduction and release verification |
+| 1 | ERCOT's ancillary-service settlement (Section 6.7) checked term by term against the ECRS ledger here |
+| 2 | Deployment from data instead of an input; charging-side reserve (curtailing charge as upward reserve) |
+| 3 | A stronger causal baseline for the five-minute energy + ECRS setting, and a learning-agent example |
+| 4 | Independent reproduction on another machine; resource-node prices |
 | Later | Other AS products, each with its own rule and accounting validation |
-
-Training agents, large forecasting models and scenario generation are deferred.
 
 ## License
 
