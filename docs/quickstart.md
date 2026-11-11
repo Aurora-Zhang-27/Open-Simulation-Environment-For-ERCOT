@@ -60,10 +60,13 @@ from an actual remote CI run.
 
 ## Use real data
 
-The offline example does not meet the real-data release criterion. Current
-energy-only workflows are documented in [the README](../README.md#get-the-data).
-The experimental public-data pilots are described in [the gate documentation](ecrs_gate.md).
-They are exploratory proxy results, not official AS settlement validation.
+The offline example uses synthetic prices. Real-data workflows are in
+[the README](../README.md#get-the-data): 15-minute and day-ahead energy
+prices, and the five-minute energy + ECRS setting of the main environment
+(`scripts/download_5min.py`, `scripts/run_market.py`). The ECRS duration
+gate and its real-data results are described in
+[the gate documentation](ecrs_gate.md). ECRS cash flows are a reduced model,
+not official AS settlement validation.
 
 The SCED export implementation from commit `c86ae8d` is included locally with
 an offline default and a carry-boundary fix. Code does not contain the cloud's

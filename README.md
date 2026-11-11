@@ -22,8 +22,8 @@ real-time markets together (two-settlement).
 
 ## Start without an API key or GPU
 
-The current development target is a reusable CPU tool: install it, run a
-strategy, and inspect reproducible outputs. Training an agent is optional.
+Install it, run a strategy, and inspect reproducible outputs. Training an
+agent is optional.
 
 ```bash
 python -m venv .venv
@@ -33,7 +33,7 @@ python -m rtcb_gym.demo --out results/demo
 ```
 
 This **synthetic** example runs idle, a rule using delayed historical prices,
-and a perfect-foresight optimizer in the experimental energy + ECRS model.
+and a perfect-foresight optimizer in the five-minute energy + ECRS gate model.
 It writes `trace.csv`, `summary.json`, `manifest.json`, input prices and
 `SHA256SUMS`. The oracle is replayed through the same execution model and
 checked against its objective. This example makes no market-data requests.
@@ -44,29 +44,37 @@ and current limitations.
 
 ## Status
 
-**v0.3.0**: the offline CPU example above, an experimental five-minute
-energy + ECRS model and a five-minute SCED price export. v0.2.0 added the
-day-ahead market and two-settlement, a rolling threshold baseline, and
-results for two hubs.
+**v0.4.0**: one environment for everything. `RTCBEnv` now also does
+five-minute dispatch with 15-minute settlement, ECRS (real time and
+day-ahead, with an optional deployment input), offer-curve actions,
+day-ahead bids with limit prices, and two-settlement episodes of several
+days. All of it is optional; the default is the v0.2 environment, and its
+results are unchanged. v0.3.0 added the offline CPU example and the
+five-minute SCED price export; v0.2.0 the day-ahead market.
 
-- **Done:** simulator, settlement (real-time only and two-settlement),
-  Gymnasium environment, nine baselines and the data pipeline. All unit
-  tests pass. They use synthetic prices only.
-- **Data:** real-time and day-ahead prices for HB_WEST and HB_HOUSTON,
-  downloaded 2026-10-25/26 with gridstatusio 0.16.1. The column mapping
-  matches the live API responses. All four [checksums](#data-checksum) are
-  published and set in the configs. HB_WEST real-time prices were downloaded
-  a second time from scratch a day later and gave the same hash.
+- **Done:** simulator, settlement, Gymnasium environment
+  (`RTCBGym-v0`), sixteen baselines, the data pipeline, and results on
+  real data for every setting. All unit tests pass. They use synthetic
+  prices only.
+- **Data:** 15-minute real-time and hourly day-ahead prices for HB_WEST
+  and HB_HOUSTON (2025-12-05 to 2026-10-24); five-minute SCED prices and
+  ECRS prices for HB_WEST (July to October 2026, plus two winter weeks).
+  All four [checksums](#data-checksum) of the 15-minute and day-ahead data
+  were reproduced on 2026-11-11 by a fresh download on another machine,
+  16 days after the first.
 - **Data terms:** GridStatus's terms of use claim ownership of the data, so
   it is not committed here, and this README credits Grid Status as the terms
   require.
 - **Not checked yet:**
-  - Nobody has reproduced the hashes on another machine.
-  - ERCOT can still correct recent prices, so a download weeks from now may
-    hash differently.
+  - The ECRS settlement follows RTC+B's two-settlement logic but has not
+    been compared term by term with ERCOT's Section 6.7 formulas, and the
+    reserve rule is a conservative subset of SCED's
+    ([details](docs/ecrs_gate.md)).
+  - No result uses ECRS deployment: there is no deployment data here.
+  - ERCOT can still correct recent prices, so a later download may hash
+    differently.
   - The [4 missing real-time intervals](#missing-intervals) have not been
-    checked against ERCOT's own archive (it is not reachable from where this
-    was built).
+    checked against ERCOT's own archive.
 
 ## Results
 
@@ -233,12 +241,6 @@ errors cost less.
 
 ## Install
 
-An experimental five-minute **energy + ECRS reservation gate** is available
-under `rtcb_gym.experimental.ecrs`; see [its model and validation status](docs/ecrs_gate.md).
-It is a conservative discharge-side-only research model with no AS deployment
-or market clearing. Its LMP/MCPC cash-flow proxies are separate from the v0.2
-energy-settlement results above.
-
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[data,dev]"
@@ -304,6 +306,32 @@ These values are set as `expected_sha256` in the configs, so
 `download_data.py` fails on a mismatch. A mismatch can also mean the source
 revised some prices after publication.
 
+### Five-minute prices and ECRS
+
+The five-minute settings need SCED data, downloaded separately because it
+is larger (about 9,000 rows per series and month; the free Grid Status plan
+allows 500,000 rows a month):
+
+```bash
+python scripts/download_5min.py --start 2026-07-01 --end 2026-10-24
+```
+
+| Series | Dataset |
+|---|---|
+| Energy, per SCED run | `ercot_lmp_by_settlement_point` (LMP) + `ercot_lmp_with_adders_by_settlement_point` (reliability deployment adder) |
+| ECRS, per SCED run | `ercot_mcpc_sced` |
+| ECRS, day-ahead hourly | `ercot_as_prices` |
+
+SCED does not run on a fixed clock, so each five-minute price is the
+time-weighted price in effect during the interval
+([`rtcb_gym/data/sced.py`](rtcb_gym/data/sced.py)). An interval priced by
+a SCED run that lacks a value is an estimate; days containing one are left
+out of episodes, like days with gaps. For HB_WEST, July to October, that
+is 13 of 33,408 intervals on 4 days (one of them the first interval of
+the download). The 15-minute mean of the five-minute
+energy price is within $0.01 of the official settlement point price in
+99.99% of 11,127 intervals.
+
 ### Cleaning report
 
 | | Real time (each hub) | Day-ahead (each hub) |
@@ -349,12 +377,16 @@ GridStatus's copy (or ERCOT did not post it). Three of the four start at
 ```bash
 python scripts/run_baselines.py                               # HB_WEST
 python scripts/run_baselines.py --config configs/hb_houston.yaml
-python scripts/summarize_results.py                           # the tables above
+python scripts/summarize_results.py                           # the first two tables above
+python scripts/run_market.py                                  # five-minute energy + ECRS (HB_WEST)
 ```
 
-Each run prints the data hashes and the tables, and writes
-`results/<hub>/real_time.{md,json}` and `results/<hub>/two_settlement.{md,json}`.
-It takes about five minutes per hub.
+`run_baselines.py` prints the data hashes and the tables, and writes
+`real_time`, `two_settlement`, `cross_day` and `sensitivity` (`.md` and
+`.json`) under `results/<hub>/`. It takes about 25 minutes per hub on four
+cores. `run_market.py` needs the five-minute data and writes
+`results/<hub>/energy_ecrs.{md,json}`; it solves an integer program per
+planning step and takes about an hour.
 
 ## Usage
 
@@ -550,6 +582,24 @@ Two-settlement adds:
 Perfect foresight (RT only) and Forecast + MPC also appear in the
 two-settlement table, with no day-ahead position.
 
+Added in v0.4:
+
+10. **Level-corrected forecast + MPC**: persistence, shifted by how far the
+    last intervals settled from the same intervals yesterday, fading with
+    the horizon. Two parameters, fitted on training-split forecast error.
+11. **Rolling threshold offer**: the rolling thresholds as the prices of an
+    offer curve.
+12. **Offer MPC**: the rolling LP's marginal buy and sell prices as an offer
+    curve.
+13. **Perfect foresight (energy + ECRS)**: the exact bound for any
+    combination of the environment's options, with or without the
+    day-ahead market and with or without ECRS.
+14. **ECRS MPC**: a rolling integer program on a forecast of energy and
+    ECRS prices (persistence, or the day's day-ahead prices).
+15. **Energy MPC**: the same without ECRS, in the same environment.
+16. **DA schedule, energy + ECRS**: yesterday's day-ahead prices of both
+    products as the forecast, a joint hourly schedule, bid and delivered.
+
 ### Why the upper bound switches to integer programming at negative prices
 
 The usual linear program has separate charge and discharge variables, and
@@ -577,6 +627,9 @@ check that they earn exactly the optimizer's objective.
   **capture rate** (revenue ÷ perfect-foresight revenue on the same days),
   equivalent full cycles per day (stored energy discharged ÷ capacity),
   number of clipped actions (and clipped day-ahead hours).
+- Uncertainty: a 95% interval for revenue and capture rate from a circular
+  block bootstrap over days (blocks of 5 days), and the capture rate without
+  the bound's five best days (`rtcb_gym.evaluation.bootstrap_ci`).
 
 Switching hub or dates means editing a config file only. A config can start
 from another one and change a few keys (`extends: default.yaml`, see
