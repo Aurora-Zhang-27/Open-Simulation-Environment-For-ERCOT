@@ -83,7 +83,7 @@ energy_ecrs:
   mpc:
     persistence_horizon_steps: 12 # one hour, as in the ECRS gate
     day_ahead_horizon_steps: 288  # to the end of the published day-ahead prices
-    day_ahead_replan_every: 3     # re-solve every 15 minutes
+    day_ahead_replan_every: 12    # re-solve every hour (day-ahead prices are hourly)
 
 # Offer-curve actions (real-time table): the same rolling threshold search
 # as above, with the thresholds used as offer prices.

@@ -73,9 +73,13 @@ results for two hubs.
 Validation 2026-07-01 .. 2026-08-24, test 2026-08-25 .. 2026-10-24. Battery:
 100 MW / 200 MWh, 85% round-trip efficiency, $2/MWh degradation cost; every
 day starts empty, with no end target. Each cell is revenue (USD) and capture
-rate. Full tables with settlement breakdown, cycles and clipped actions:
+rate. Full tables with settlement breakdown, cycles, clipped actions and
+the interval of every capture rate:
 [`results/hb_west/`](results/hb_west) and [`results/hb_houston/`](results/hb_houston).
 Data provided by [Grid Status](https://www.gridstatus.io).
+
+All of the v0.2 numbers below were reproduced to the dollar by v0.4 on a
+fresh download (2026-11-11); the rows and sections added since are marked.
 
 **Real-time energy only.** Capture rate = revenue / perfect foresight on the same days.
 
@@ -85,6 +89,12 @@ Data provided by [Grid Status](https://www.gridstatus.io).
 | Threshold rule | 122k (22.7%) | 134k (14.4%) | 27k (6.2%) | 51k (6.7%) |
 | Rolling threshold (30 d) | 118k (21.9%) | 208k (22.4%) | 42k (9.5%) | 76k (10.1%) |
 | Forecast + MPC | 267k (49.6%) | 435k (46.9%) | 191k (43.6%) | 309k (41.0%) |
+| Level-corrected forecast + MPC | 322k (59.7%) | 417k (44.9%) | 244k (55.7%) | 306k (40.6%) |
+| Rolling threshold offer (30 d) | 102k (18.9%) | 173k (18.7%) | 71k (16.2%) | 71k (9.4%) |
+| Offer MPC | 189k (35.0%) | 226k (24.3%) | 142k (32.4%) | 159k (21.2%) |
+
+The last two submit an offer curve instead of a power (see
+[Options](#options)); the bound is the same.
 
 **Day-ahead + real time (two-settlement).** Capture rate = revenue / perfect foresight (DA + RT).
 
@@ -143,6 +153,83 @@ optimizer's objective (within 1e-6 relative).
   $102 per MW per day at HB_WEST). The five late-August test days average
   $33.7k/day; September and October still average $14.1k/day, against
   $10.2k/day on validation, where July is the quietest month.
+
+### How sure the numbers are
+
+New in v0.4. Each split has 53 or 59 days, and a few days carry much of the
+revenue: on the HB_WEST test split, perfect foresight earns 36% of its
+revenue on its five best days. The full tables therefore give every
+capture rate a 95% interval (block bootstrap over days) and the capture
+rate without those five days.
+
+- **The intervals are wide.** Forecast + MPC on the HB_WEST test split is
+  46.9%, with an interval of 33% to 59%. Most strategies have intervals 15
+  to 35 points wide.
+- **Neighbouring strategies cannot be ranked.** The intervals of most
+  adjacent rows overlap, including Forecast + MPC against the day-ahead
+  strategies and the three day-ahead strategies among themselves. Read a
+  difference of a few points as not established.
+- The intervals only describe which days happened to be in the split. They
+  say nothing about a season that is not in the data.
+
+### What the new strategies show
+
+- **Reacting to the current price through a fixed offer does not help
+  these strategies; it hurts.** Offer MPC earns 21–35%, against 41–50% for
+  the same plan executed as a power; the threshold rule as an offer is
+  lower at HB_WEST (19% against 22%), mixed at HB_HOUSTON. An offer at a
+  fixed price trades the moment the price crosses it, which on an evening
+  ramp is too early. The environment can express offers; a strategy that
+  uses them well is still missing.
+- **A slightly better forecast helps on one split and not the other.**
+  Correcting persistence for the last half hour's level raises capture from
+  50% to 60% (HB_WEST) and 44% to 56% (HB_HOUSTON) on validation, and
+  changes nothing on test (45% against 47%, 41% against 41%). The two
+  intervals overlap almost entirely on test.
+
+### Carrying energy over midnight
+
+New in v0.4: two-settlement with every episode starting and ending half
+full, as 7-day episodes (SoC carries over) and as one-day episodes on the
+same 49 validation and 56 test days
+([`cross_day.md`](results/hb_west/cross_day.md)).
+
+| Revenue, 1-day → 7-day episodes | HB_WEST validation | HB_WEST test | HB_HOUSTON validation | HB_HOUSTON test |
+|---|---:|---:|---:|---:|
+| Perfect foresight (DA + RT) | 842k → 875k (+4.0%) | 1,533k → 1,566k (+2.2%) | 675k → 707k (+4.8%) | 1,309k → 1,343k (+2.7%) |
+| Perfect foresight (RT only) | 391k → 424k (+8.6%) | 768k → 802k (+4.4%) | 294k → 327k (+11.1%) | 611k → 646k (+5.7%) |
+| DA schedule + MPC on DA prices | 292k → 332k (+13.7%) | 485k → 522k (+7.6%) | 226k → 261k (+15.7%) | 343k → 381k (+11.0%) |
+| MPC on DA prices | 225k → 265k (+17.7%) | 432k → 469k (+8.6%) | 148k → 184k (+23.9%) | 294k → 331k (+12.9%) |
+| Forecast + MPC | 204k → 247k (+20.6%) | 340k → 361k (+6.4%) | 135k → 177k (+31.0%) | 229k → 268k (+17.0%) |
+
+- **Forcing the battery back to half full every midnight costs the bound
+  2–5%** (4–11% of the real-time part). The day-ahead part is the same in
+  both, because each day's award is checked from the same starting SoC.
+- **The MPC strategies gain more than the bound** (6–31%): a rolling plan
+  that must hit a target at midnight spends the evening meeting it.
+- A delivered day-ahead schedule gains nothing: it is planned one day at a
+  time.
+
+### Battery duration
+
+New in v0.4: the two-settlement table for 100 MW with 100, 200 and 400 MWh
+([`sensitivity.md`](results/hb_west/sensitivity.md)). HB_WEST test split,
+USD per MW per day:
+
+| Strategy | 1 h | 2 h | 4 h |
+|---|---:|---:|---:|
+| Perfect foresight (DA + RT) | 194 | 312 | 442 |
+| Perfect foresight (RT only) | 97 | 157 | 230 |
+| DA schedule + MPC on DA prices | 48 | 97 | 170 |
+| Forecast + MPC | 33 | 74 | 136 |
+
+The second and fourth hours of storage each add less than the one before
+under perfect foresight (1.6 times the revenue from 1 h to 2 h, 1.4 times
+from 2 h to 4 h). The causal strategies capture more of the bound with
+longer duration (Forecast + MPC: 17%, 24%, 31%): with more energy, timing
+errors cost less.
+
+<!-- ENERGY_ECRS -->
 
 ## Install
 

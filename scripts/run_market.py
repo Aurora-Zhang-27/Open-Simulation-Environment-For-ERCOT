@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 
 import numpy as np
@@ -86,6 +87,60 @@ def load_prices(cfg: dict, lo: pd.Timestamp, hi: pd.Timestamp) -> tuple[pd.DataF
     return rt5, ecrs, da_ecrs, quality
 
 
+def score_split(job: tuple) -> tuple[str, list[dict], list[dict], dict]:
+    """Run every strategy on one split."""
+    split, cfg, rt5, ecrs, da_ecrs, da, params, rules, limit_days = job
+    m, e, da_cfg = cfg["market"], cfg["energy_ecrs"], cfg["day_ahead"]
+    splits = parse_splits(cfg["splits"])
+    mpc = e["mpc"]
+    env = RTCBEnv(
+        rt5, params, days=days_between(*splits[split]), dt_hours=1 / 12, settlement_minutes=15,
+        history_len=int(e["history_len"]), tz=m["timezone"], sample="sequential",
+        da_prices=da, da_decision_time=str(da_cfg.get("decision_time", "10:00")),
+        da_history_days=int(da_cfg.get("history_days", 7)),
+        ecrs_prices=ecrs, ecrs_rules=rules, da_ecrs_prices=da_ecrs,
+    )
+    days = env.days[:limit_days] if limit_days else env.days
+    print(f"{split}: {len(env.days)} episode days, {len(env.excluded_days)} excluded", flush=True)
+    for day, reason in env.excluded_days.items():
+        print(f"    excluded {day}: {reason}")
+
+    def pf(name: str, **kw) -> PerfectForesightMarket:
+        policy = PerfectForesightMarket(env, **kw)
+        policy.name = name
+        return policy
+
+    bounds = [pf("Perfect foresight (DA + RT, energy + ECRS)"),
+              pf("Perfect foresight (RT only, energy + ECRS)", day_ahead=False),
+              pf("Perfect foresight (DA + RT, energy only)", use_ecrs=False),
+              pf("Perfect foresight (RT only, energy only)", day_ahead=False, use_ecrs=False)]
+    h = int(mpc["day_ahead_horizon_steps"])
+    every = int(mpc["day_ahead_replan_every"])
+    policies = bounds + [
+        DayAheadEnergyECRS(env),
+        ECRSMPC(env, horizon=h, forecast="day_ahead", replan_every=every),
+        ECRSMPC(env, horizon=h, forecast="day_ahead", replan_every=every, energy_only=True),
+        ECRSMPC(env, horizon=int(mpc["persistence_horizon_steps"])),
+        ECRSMPC(env, horizon=int(mpc["persistence_horizon_steps"]), energy_only=True),
+    ]
+    results = []
+    for policy in policies:
+        r = run_policy(env, policy, days)
+        results.append(r)
+        print(f"  {split} {policy.name}: {r.revenue_usd:,.0f} (ECRS {r.ecrs_revenue_usd:,.0f})", flush=True)
+    for policy, r in zip(bounds, results):
+        check_replay(split, policy.name, r.revenue_usd, policy.planned_revenue_usd + policy.planned_da_usd)
+    upper, rows = results[0], []
+    for r in results:
+        if r.revenue_usd > upper.revenue_usd + 1e-6:
+            print(f"WARNING {split}: {r.policy} beats the bound")
+        row = metrics_row(split, r, upper, params.energy_mwh)
+        row.update(n_ecrs_clipped=r.n_ecrs_clipped, ecrs_mean_mw=r.ecrs_mw_hours / (r.n_steps * env.dt_hours),
+                   ecrs_da_revenue_usd=r.ecrs_da_revenue_usd, ecrs_rt_revenue_usd=r.ecrs_rt_revenue_usd)
+        rows.append(row)
+    return split, rows, [r.to_dict() for r in results], env.excluded_days
+
+
 def table(rows: list[dict]) -> str:
     lines = ["| Split | Strategy | Days | Revenue (USD) | of which ECRS | Capture rate (95% interval) | "
              "Cycles/day | ECRS award, mean MW | Clipped: energy / ECRS / DA h |",
@@ -123,55 +178,12 @@ def main() -> None:
     hashes = {"day-ahead energy prices": data_sha256(da), **quality["canonical_sha256"]}
 
     rows, runs, excluded = [], {}, {}
-    mpc = e["mpc"]
-    for split in args.splits:
-        env = RTCBEnv(
-            rt5, params, days=days_between(*splits[split]), dt_hours=1 / 12, settlement_minutes=15,
-            history_len=int(e["history_len"]), tz=m["timezone"], sample="sequential",
-            da_prices=da, da_decision_time=str(da_cfg.get("decision_time", "10:00")),
-            da_history_days=int(da_cfg.get("history_days", 7)),
-            ecrs_prices=ecrs, ecrs_rules=rules, da_ecrs_prices=da_ecrs,
-        )
-        excluded[split] = env.excluded_days
-        days = env.days[: args.limit_days] if args.limit_days else env.days
-        print(f"{split}: {len(env.days)} episode days, {len(env.excluded_days)} excluded", flush=True)
-        for day, reason in env.excluded_days.items():
-            print(f"    excluded {day}: {reason}")
-
-        def pf(name: str, **kw) -> PerfectForesightMarket:
-            policy = PerfectForesightMarket(env, **kw)
-            policy.name = name
-            return policy
-
-        bounds = [pf("Perfect foresight (DA + RT, energy + ECRS)"),
-                  pf("Perfect foresight (RT only, energy + ECRS)", day_ahead=False),
-                  pf("Perfect foresight (DA + RT, energy only)", use_ecrs=False),
-                  pf("Perfect foresight (RT only, energy only)", day_ahead=False, use_ecrs=False)]
-        h = int(mpc["day_ahead_horizon_steps"])
-        every = int(mpc["day_ahead_replan_every"])
-        policies = bounds + [
-            DayAheadEnergyECRS(env),
-            ECRSMPC(env, horizon=h, forecast="day_ahead", replan_every=every),
-            ECRSMPC(env, horizon=h, forecast="day_ahead", replan_every=every, energy_only=True),
-            ECRSMPC(env, horizon=int(mpc["persistence_horizon_steps"])),
-            ECRSMPC(env, horizon=int(mpc["persistence_horizon_steps"]), energy_only=True),
-        ]
-        results = []
-        for policy in policies:
-            r = run_policy(env, policy, days)
-            results.append(r)
-            print(f"  {policy.name}: {r.revenue_usd:,.0f} (ECRS {r.ecrs_revenue_usd:,.0f})", flush=True)
-        for policy, r in zip(bounds, results):
-            check_replay(split, policy.name, r.revenue_usd, policy.planned_revenue_usd + policy.planned_da_usd)
-        upper = results[0]
-        for r in results:
-            if r.revenue_usd > upper.revenue_usd + 1e-6:
-                print(f"WARNING {split}: {r.policy} beats the bound")
-            row = metrics_row(split, r, upper, params.energy_mwh)
-            row.update(n_ecrs_clipped=r.n_ecrs_clipped, ecrs_mean_mw=r.ecrs_mw_hours / (r.n_steps * env.dt_hours),
-                       ecrs_da_revenue_usd=r.ecrs_da_revenue_usd, ecrs_rt_revenue_usd=r.ecrs_rt_revenue_usd)
-            rows.append(row)
-        runs[split] = [r.to_dict() for r in results]
+    jobs = [(split, cfg, rt5, ecrs, da_ecrs, da, params, rules, args.limit_days) for split in args.splits]
+    with ProcessPoolExecutor(max_workers=len(jobs)) as pool:  # one process per split
+        for split, split_rows, split_runs, split_excluded in pool.map(score_split, jobs):
+            rows += split_rows
+            runs[split] = split_runs
+            excluded[split] = split_excluded
 
     md_table = table(rows)
     print("\n" + md_table + "\n")
