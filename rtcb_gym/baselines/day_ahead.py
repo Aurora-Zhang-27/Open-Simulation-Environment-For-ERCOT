@@ -134,6 +134,11 @@ class PerfectForesightDayAhead(DayAheadSchedule):
 class DayAheadForecastMPC(ForecastMPC):
     name = "MPC on DA prices"
 
+    def horizon(self, obs: np.ndarray, steps_left: int) -> int:
+        # In an episode of several days the next day's prices appear when
+        # they are published: plan as far as the day-ahead prices reach.
+        return min(super().horizon(obs, steps_left), int(obs[self.layout["da_ahead_mask"]].sum()))
+
     def forecast(self, obs: np.ndarray, horizon: int) -> np.ndarray:
         ahead = obs[self.layout["da_price_ahead"]]
         if obs[self.layout["da_ahead_mask"]][:horizon].min() < 1.0:

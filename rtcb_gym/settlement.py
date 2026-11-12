@@ -25,8 +25,13 @@ Sign convention matches :mod:`rtcb_gym.battery`: positive power is discharge
 (sell), negative is charge (buy). Charging at a negative price therefore
 earns money: (-P) * dt * (negative price) > 0.
 
-Not modelled: ancillary services (v0.5), resource-node vs hub basis, fees
-and uplift charges.
+ECRS, where the environment has it, is settled in :mod:`rtcb_gym.env` the
+same two ways (real-time award at the real-time ECRS price, or day-ahead
+award at the day-ahead price plus the deviation at the real-time price),
+under the reduced model of :mod:`rtcb_gym.ancillary`.
+
+Not modelled: the other ancillary services, resource-node vs hub basis,
+fees and uplift charges.
 """
 
 from __future__ import annotations

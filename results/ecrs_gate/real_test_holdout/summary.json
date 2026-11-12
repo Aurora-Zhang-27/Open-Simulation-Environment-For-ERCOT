@@ -1,0 +1,1626 @@
+{
+  "protocol": {
+    "analysis_stage": "holdout_test_split_protocol_fixed_before_outcomes",
+    "source": "gridstatus",
+    "start": "2026-08-25 05:00:00+00:00",
+    "end_exclusive": "2026-10-24 05:00:00+00:00",
+    "intervals": 17280,
+    "panels": 20,
+    "panel_days": 3,
+    "battery": {
+      "power_mw": 100.0,
+      "energy_mwh": 200.0,
+      "rte": 0.85,
+      "soc_min": 0.0,
+      "soc_max": 1.0,
+      "soc_init": 0.5,
+      "soc_terminal_min": 0.5,
+      "degradation_cost_usd_per_mwh": 2.0
+    },
+    "canonical_rule": "ecrs-1h-discharge-reservation-v1",
+    "comparison_rule": "sensitivity-0.25h-discharge-reservation-v1",
+    "mpc_horizon_steps": 12,
+    "mpc_tie_break_usd_per_mwh": 0.001,
+    "publication_lag_minutes": 5,
+    "publication_lag_verified": false,
+    "price_basis": "HB_WEST_5min_SCED_LMP_plus_RTRDPA_and_ECRS_MCPC_proxy",
+    "as_deployment": "none",
+    "software": {
+      "python": "3.13.18",
+      "numpy": "2.5.3",
+      "pandas": "3.0.5"
+    },
+    "dependency_versions": {
+      "scipy": "1.18.1",
+      "gymnasium": "1.4.0",
+      "pyarrow": "26.0.1"
+    },
+    "code_sha256": {
+      "rtcb_gym/experimental/ecrs.py": "d242c2df87ea2aaae3ed56332eef7dd0cbf3751cc9d59bc74ae55d2acab11f9b",
+      "rtcb_gym/ancillary.py": "135ea06a786be134df410693a42f9ade7b17b06e002e9d381b4d04528909ebd2",
+      "rtcb_gym/battery.py": "a3ece8bf984bf0d0dd960ef840565758712a8670aebf47d6e8163794ef0c9ab9",
+      "rtcb_gym/data/sced.py": "b2c667ec8c40774d3f46675f308a6c5f1249bfd41ca3dfd942405ead85e94bc5",
+      "scripts/run_ecrs_gate.py": "566ed9ea8061eadfbf7e2d49d10100bdaee2fd4104bffe8e449e3613e3599d1c"
+    },
+    "input_files": [
+      {
+        "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20260120T0600_20260201T0000.parquet",
+        "sha256": "d943f6133d4f61b423c83f0531bac31cca30241f678ff72d39e93556ab3e19ec",
+        "rows": 3447
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20260201T0000_20260206T0600.parquet",
+        "sha256": "0583d4ed205dc37b8cfbc4c731fb0b78aefa5cf5325bd67a20c9088019fceef7",
+        "rows": 1557
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20260701T0500_20260801T0000.parquet",
+        "sha256": "7b0ad559a2bc3848b9a0b44d73427f5c76871cf952ff7b8faee5bc11a0a681da",
+        "rows": 8921
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20260801T0000_20260901T0000.parquet",
+        "sha256": "75cb681a132a1243c59d56c80018287752a88301c9737571506b0049e510841b",
+        "rows": 9004
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20260901T0000_20261001T0000.parquet",
+        "sha256": "086960c7d144d3eb9c67ddd1f1c20e460ad3a49324d044edd8404eb8c8fa0ca3",
+        "rows": 8753
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_by_settlement_point/HB_WEST/20261001T0000_20261025T0500.parquet",
+        "sha256": "0f932d215c746434ded37ebf1eaf588ddfbf407f155b5a9bff26dd4fd6205914",
+        "rows": 7038
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20260120T0600_20260201T0000.parquet",
+        "sha256": "8acc5adc309bfb4f4b72900a18b132f8e616d9f6ec103efea05877ab53f8d821",
+        "rows": 3442
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20260201T0000_20260206T0600.parquet",
+        "sha256": "aaca0f8bd48427894e813f414293d5ffaa876a01ca92bf41047d3532e80980ac",
+        "rows": 1557
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20260701T0500_20260801T0000.parquet",
+        "sha256": "b2b8dabdace67d2194de77a58c784728e226e65b2c1f844b354e7776e820b7ed",
+        "rows": 8918
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20260801T0000_20260901T0000.parquet",
+        "sha256": "03ddaf42e91f5660341822365ddec52ee0cd142d0c2d42fbed4cf8d6cb3a6c4c",
+        "rows": 9002
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20260901T0000_20261001T0000.parquet",
+        "sha256": "6acb7abafa11c41cc390dc0bcfd85fcd29f0d58406baa8a4953a77ba8709bb62",
+        "rows": 8753
+      },
+      {
+        "file": "gridstatusio/ercot_lmp_with_adders_by_settlement_point/HB_WEST/20261001T0000_20261025T0500.parquet",
+        "sha256": "823bf317c4960fbce1bbadcd19444225413558359cc13a6dbd47908cbe771699",
+        "rows": 7035
+      },
+      {
+        "file": "gridstatusio/ercot_mcpc_sced/ECRS/20260120T0600_20260201T0000.parquet",
+        "sha256": "cbdb3da96c427011047971241bb0edc6d29dff022a79a9508f5b7e999d23fd9a",
+        "rows": 3447
+      },
+      {
+        "file": "gridstatusio/ercot_mcpc_sced/ECRS/20260201T0000_20260206T0600.parquet",
+        "sha256": "ab75be5e1b092cd10f193133267d946bc0238aefc9f1436f38c8d6cd5d7d0d21",
+        "rows": 1557
+      },
+      {
+        "file": "gridstatusio/ercot_mcpc_sced/ECRS/20260701T0500_20260801T0000.parquet",
+        "sha256": "db4b4a78c6f5b19fefa02f1ea53857c6eec6f25fd7e94539e8539889ab07999d",
+        "rows": 8921
+      },
+      {
+        "file": "gridstatusio/ercot_mcpc_sced/ECRS/20260801T0000_20260901T0000.parquet",
+        "sha256": "0bcf59e9e9e96cf1b8e6f98d86c29ed43ab04b9cf7f9afee386a9630334bd54f",
+        "rows": 9004
+      },
+      {
+        "file": "gridstatusio/ercot_mcpc_sced/ECRS/20260901T0000_20261001T0000.parquet",
+        "sha256": "5022349f5d5df0d8b77d663399d23a19816938ccd2c6009c4c964a910973fe6b",
+        "rows": 8753
+      },
+      {
+        "file": "gridstatusio/ercot_mcpc_sced/ECRS/20261001T0000_20261025T0500.parquet",
+        "sha256": "7a0ee0f6cb9e3c4b046025b414c56dc0073a280c430bf00a44d1cd62deebdfe7",
+        "rows": 7038
+      }
+    ],
+    "interpretation": "The 0.25h model is a sensitivity case reproducing a comparator parameter, not the historical pre-RTC+B ECRS rule."
+  },
+  "totals": [
+    {
+      "policy": "idle",
+      "panels": 16,
+      "intervals": 13824,
+      "revenue_proxy_usd": 0.0,
+      "energy_proxy_usd": 0.0,
+      "ecrs_proxy_usd": 0.0,
+      "degradation_usd": 0.0,
+      "clipped_ecrs_intervals": 0,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 0.0,
+      "panel_revenue_proxy_usd": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "policy": "energy_mpc",
+      "panels": 16,
+      "intervals": 13824,
+      "revenue_proxy_usd": 14493.964418376767,
+      "energy_proxy_usd": 56093.426208458826,
+      "ecrs_proxy_usd": 0.0,
+      "degradation_usd": 41599.461790082045,
+      "clipped_ecrs_intervals": 0,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 0.0,
+      "panel_revenue_proxy_usd": [
+        10372.459883063324,
+        -4119.484219165227,
+        5176.65870970602,
+        -1893.9034914371568,
+        1023.9328932990766,
+        12084.239749482582,
+        -1395.5217699109298,
+        -785.9840662356778,
+        -2386.8295952794297,
+        -237.88677073341205,
+        -6069.109219647963,
+        -7381.139098653522,
+        -1840.7123938736295,
+        1736.1102522030822,
+        6122.49815391803,
+        4088.6354016416
+      ]
+    },
+    {
+      "policy": "ecrs_mpc_1h",
+      "panels": 16,
+      "intervals": 13824,
+      "revenue_proxy_usd": 18090.698129044387,
+      "energy_proxy_usd": 55053.429116318,
+      "ecrs_proxy_usd": 4269.347439128558,
+      "degradation_usd": 41232.07842640218,
+      "clipped_ecrs_intervals": 0,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 1.0105801513791777e-11,
+      "panel_revenue_proxy_usd": [
+        11256.20744456495,
+        -4014.4791121632293,
+        5404.012949958379,
+        -1820.7651738745863,
+        1013.2138916657839,
+        12491.077260652713,
+        -1485.5845570976853,
+        -633.7672636024508,
+        -2364.529047770645,
+        -274.5902820042111,
+        -5756.545794140781,
+        -7250.225250473275,
+        -1349.815764730848,
+        2581.305972414308,
+        6141.202766076806,
+        4153.980089569155
+      ]
+    },
+    {
+      "policy": "ecrs_mpc_0.25h_executed_under_1h",
+      "panels": 16,
+      "intervals": 13824,
+      "revenue_proxy_usd": 21264.66690714348,
+      "energy_proxy_usd": 55162.337018126906,
+      "ecrs_proxy_usd": 7170.55878755841,
+      "degradation_usd": 41068.22889854181,
+      "clipped_ecrs_intervals": 3639,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 172571.69294001584,
+      "panel_revenue_proxy_usd": [
+        14391.932985310576,
+        -4041.09765807135,
+        5162.0482422247915,
+        -1725.8477180787222,
+        1257.4809525128849,
+        12751.370062208116,
+        -1698.333578939185,
+        -923.803668323369,
+        -2670.812669316602,
+        -519.4927389730633,
+        -5946.7906753997095,
+        -7458.197100727824,
+        -416.8403313903209,
+        3004.9750691137097,
+        5895.072299341552,
+        4203.003435651999
+      ]
+    },
+    {
+      "policy": "oracle_1h",
+      "panels": 16,
+      "intervals": 13824,
+      "revenue_proxy_usd": 643204.8526509687,
+      "energy_proxy_usd": 690612.7833510825,
+      "ecrs_proxy_usd": 24592.21285616622,
+      "degradation_usd": 72000.14355627997,
+      "clipped_ecrs_intervals": 0,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 3.5262144374252013e-09,
+      "panel_revenue_proxy_usd": [
+        90094.025922665,
+        10729.65492500843,
+        42379.88002602084,
+        26116.815011075523,
+        19414.70194795064,
+        71684.37001318116,
+        40463.82617642904,
+        53116.73045859834,
+        24881.050503928363,
+        38319.09970460089,
+        29022.628705691484,
+        78821.86924773818,
+        41244.83550795977,
+        28938.733118359803,
+        24046.626952974228,
+        23930.00442878709
+      ]
+    },
+    {
+      "policy": "oracle_0.25h",
+      "panels": 16,
+      "intervals": 13824,
+      "revenue_proxy_usd": 661288.3489771406,
+      "energy_proxy_usd": 676924.8725461917,
+      "ecrs_proxy_usd": 54404.46149770183,
+      "degradation_usd": 70040.98506675291,
+      "clipped_ecrs_intervals": 0,
+      "clipped_energy_intervals": 0,
+      "ecrs_shortfall_mw_intervals": 1.0843434299809902e-07,
+      "panel_revenue_proxy_usd": [
+        91564.96307014444,
+        11081.63037023196,
+        43578.430529517784,
+        26327.073587010163,
+        20643.946060921153,
+        72963.38809703033,
+        40539.212547126015,
+        57568.652409903494,
+        26299.441073342954,
+        39935.03841656716,
+        29527.58785386828,
+        80905.98043276113,
+        42244.12735489115,
+        29214.00366652586,
+        24454.961982350622,
+        24439.911524948155
+      ]
+    }
+  ],
+  "panels": [
+    {
+      "start": "2026-08-31 05:00:00+00:00",
+      "end_exclusive": "2026-09-03 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": 10372.459883063324,
+          "energy_proxy_usd": 13704.761622184698,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 3332.301739121376,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 11256.20744456495,
+          "energy_proxy_usd": 13256.549186964743,
+          "ecrs_proxy_usd": 1325.5591271530764,
+          "degradation_usd": 3325.900869552869,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 4.338751580235112e-13,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 14391.932985310576,
+          "energy_proxy_usd": 15607.748055789023,
+          "ecrs_proxy_usd": 2000.542587306692,
+          "degradation_usd": 3216.3576577851377,
+          "clipped_ecrs_intervals": 363,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 19098.905928362,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 90094.025922665,
+          "energy_proxy_usd": 94769.82261314426,
+          "ecrs_proxy_usd": 1005.3668838293152,
+          "degradation_usd": 5681.1635743085835,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 6.070965952176266e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 91564.96307014444,
+          "energy_proxy_usd": 93270.7995918668,
+          "ecrs_proxy_usd": 3721.7818300306626,
+          "degradation_usd": 5427.618351753031,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.126734629330093e-08,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-09-03 05:00:00+00:00",
+      "end_exclusive": "2026-09-06 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": -4119.484219165227,
+          "energy_proxy_usd": -1826.4471859262017,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 2293.037033239023,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -4014.4791121632293,
+          "energy_proxy_usd": -1813.2730221819784,
+          "ecrs_proxy_usd": 69.46166221202213,
+          "degradation_usd": 2270.6677521932716,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 2.162714451969805e-13,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -4041.09765807135,
+          "energy_proxy_usd": -1812.3438353015392,
+          "ecrs_proxy_usd": 67.91066144960656,
+          "degradation_usd": 2296.6644842194155,
+          "clipped_ecrs_intervals": 181,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 9406.244515434892,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 10729.65492500843,
+          "energy_proxy_usd": 14892.557881895782,
+          "ecrs_proxy_usd": 176.64277195855567,
+          "degradation_usd": 4339.545728845906,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 3.924610636474313e-12,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 11081.63037023196,
+          "energy_proxy_usd": 14664.791269440917,
+          "ecrs_proxy_usd": 678.8826471896995,
+          "degradation_usd": 4262.043546398655,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 8.943068507960561e-12,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-09-06 05:00:00+00:00",
+      "end_exclusive": "2026-09-09 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": 5176.65870970602,
+          "energy_proxy_usd": 7444.303586082298,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 2267.6448763762783,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 5404.012949958379,
+          "energy_proxy_usd": 7544.792019133469,
+          "ecrs_proxy_usd": 152.25796406393363,
+          "degradation_usd": 2293.0370332390235,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 6.503131366741854e-14,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 5162.0482422247915,
+          "energy_proxy_usd": 7148.62281956462,
+          "ecrs_proxy_usd": 306.46245589919346,
+          "degradation_usd": 2293.037033239023,
+          "clipped_ecrs_intervals": 203,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 8141.474222479193,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 42379.88002602084,
+          "energy_proxy_usd": 45928.174130586485,
+          "ecrs_proxy_usd": 650.2690496761513,
+          "degradation_usd": 4198.563154241792,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 3.1472602302073938e-12,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 43578.430529517784,
+          "energy_proxy_usd": 45313.19058338256,
+          "ecrs_proxy_usd": 2550.8619239064283,
+          "degradation_usd": 4285.621977771204,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 2.98099323003953e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-09-09 05:00:00+00:00",
+      "end_exclusive": "2026-09-12 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": -1893.9034914371568,
+          "energy_proxy_usd": 789.0845221940235,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 2682.9880136311804,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000002
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -1820.7651738745863,
+          "energy_proxy_usd": 729.750226987052,
+          "ecrs_proxy_usd": 104.6621552532026,
+          "degradation_usd": 2655.1775561148406,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.758593271006248e-13,
+          "terminal_soc": 0.5000000000000002
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -1725.8477180787222,
+          "energy_proxy_usd": 771.4378227783563,
+          "ecrs_proxy_usd": 105.89855120547524,
+          "degradation_usd": 2603.184092062553,
+          "clipped_ecrs_intervals": 174,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 7810.112111239596,
+          "terminal_soc": 0.5000000000000002
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 26116.815011075523,
+          "energy_proxy_usd": 30551.258771067376,
+          "ecrs_proxy_usd": 234.85032347308,
+          "degradation_usd": 4669.294083464937,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 6.577920430572703e-10,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 26327.073587010163,
+          "energy_proxy_usd": 29905.253556870826,
+          "ecrs_proxy_usd": 975.0356822324763,
+          "degradation_usd": 4553.2156520931385,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 9.68846407545243e-08,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-09-12 05:00:00+00:00",
+      "end_exclusive": "2026-09-15 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": 1023.9328932990766,
+          "energy_proxy_usd": 2665.842475557708,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 1641.9095822586314,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 1013.2138916657839,
+          "energy_proxy_usd": 2619.0861788281577,
+          "ecrs_proxy_usd": 20.92291601129036,
+          "degradation_usd": 1626.795203173664,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 7.964399697953573e-13,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 1257.4809525128849,
+          "energy_proxy_usd": 2720.2561656448534,
+          "ecrs_proxy_usd": 44.91868285215269,
+          "degradation_usd": 1507.6938959841216,
+          "clipped_ecrs_intervals": 112,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 5566.842334489693,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 19414.70194795064,
+          "energy_proxy_usd": 21575.03626149527,
+          "ecrs_proxy_usd": 470.19398990539423,
+          "degradation_usd": 2630.52830345002,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 2.964739564959018e-12,
+          "terminal_soc": 0.5,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 20643.946060921153,
+          "energy_proxy_usd": 20598.528272244468,
+          "ecrs_proxy_usd": 2541.7304058521927,
+          "degradation_usd": 2496.3126171755102,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 4.4288128719927045e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-09-15 05:00:00+00:00",
+      "end_exclusive": "2026-09-18 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": 12084.239749482582,
+          "energy_proxy_usd": 15484.625359003574,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 3400.385609520992,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 12491.077260652713,
+          "energy_proxy_usd": 15624.838784912781,
+          "ecrs_proxy_usd": 161.4280068295539,
+          "degradation_usd": 3295.18953108962,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 9.507811205011762e-13,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 12751.370062208116,
+          "energy_proxy_usd": 15342.581221995979,
+          "ecrs_proxy_usd": 566.135234046855,
+          "degradation_usd": 3157.3463938347177,
+          "clipped_ecrs_intervals": 248,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 11525.220841383809,
+          "terminal_soc": 0.5000000000000002
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 71684.37001318116,
+          "energy_proxy_usd": 76034.39441439904,
+          "ecrs_proxy_usd": 1884.026766655094,
+          "degradation_usd": 6234.051167872971,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.0266048693786407e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 72963.38809703033,
+          "energy_proxy_usd": 74576.48797292588,
+          "ecrs_proxy_usd": 4792.279186283703,
+          "degradation_usd": 6405.379062179237,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 2.4126478592734202e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-09-18 05:00:00+00:00",
+      "end_exclusive": "2026-09-21 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": -1395.5217699109298,
+          "energy_proxy_usd": 1419.868204504565,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 2815.389974415494,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000002
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -1485.5845570976853,
+          "energy_proxy_usd": 1258.1093915587091,
+          "ecrs_proxy_usd": 71.69602575909978,
+          "degradation_usd": 2815.3899744154937,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 9.000291953267751e-14,
+          "terminal_soc": 0.5000000000000002
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -1698.333578939185,
+          "energy_proxy_usd": 1042.953656528838,
+          "ecrs_proxy_usd": 99.49489581021636,
+          "degradation_usd": 2840.782131278239,
+          "clipped_ecrs_intervals": 219,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 8616.45922055193,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 40463.82617642904,
+          "energy_proxy_usd": 45352.94105890242,
+          "ecrs_proxy_usd": 116.20643030900179,
+          "degradation_usd": 5005.321312782392,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 5.964650995338161e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 40539.212547126015,
+          "energy_proxy_usd": 45373.058649750805,
+          "ecrs_proxy_usd": 273.4468877175126,
+          "degradation_usd": 5107.292990342305,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 3.5025569383638105e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-09-21 05:00:00+00:00",
+      "end_exclusive": "2026-09-24 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": -785.9840662356778,
+          "energy_proxy_usd": 2219.847084650404,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 3005.8311508860816,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -633.7672636024508,
+          "energy_proxy_usd": 1771.7585139074354,
+          "ecrs_proxy_usd": 411.0250246291505,
+          "degradation_usd": 2816.550802139037,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.5259543774636961e-12,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -923.803668323369,
+          "energy_proxy_usd": 147.89034775470554,
+          "ecrs_proxy_usd": 1670.565092607125,
+          "degradation_usd": 2742.259108685199,
+          "clipped_ecrs_intervals": 268,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 13818.60784867852,
+          "terminal_soc": 0.5000000000000002
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 53116.73045859834,
+          "energy_proxy_usd": 45785.95405688159,
+          "ecrs_proxy_usd": 12624.829752036965,
+          "degradation_usd": 5294.053350320222,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 3.6323294905264582e-12,
+          "terminal_soc": 0.5,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 57568.652409903494,
+          "energy_proxy_usd": 45578.2001471387,
+          "ecrs_proxy_usd": 16929.015417006587,
+          "degradation_usd": 4938.563154241792,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 3.6235311047979245e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-09-24 05:00:00+00:00",
+      "end_exclusive": "2026-09-27 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": -2386.8295952794297,
+          "energy_proxy_usd": 74.88390854783074,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 2461.7135038272586,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -2364.529047770645,
+          "energy_proxy_usd": 74.77571202368108,
+          "ecrs_proxy_usd": 19.38586821593965,
+          "degradation_usd": 2458.6906280102653,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 2.5490720645393594e-13,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -2670.812669316602,
+          "energy_proxy_usd": -389.32671302167637,
+          "ecrs_proxy_usd": 200.17852792448986,
+          "degradation_usd": 2481.6644842194155,
+          "clipped_ecrs_intervals": 317,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 14424.1048353884,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 24881.050503928363,
+          "energy_proxy_usd": 29059.44074196968,
+          "ecrs_proxy_usd": 225.12389659263602,
+          "degradation_usd": 4403.514134633949,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 3.2094327195864025e-12,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 26299.441073342954,
+          "energy_proxy_usd": 27900.677951211015,
+          "ecrs_proxy_usd": 2637.228237158041,
+          "degradation_usd": 4238.465115026105,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 3.0969005138103967e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-09-27 05:00:00+00:00",
+      "end_exclusive": "2026-09-30 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": -237.88677073341205,
+          "energy_proxy_usd": 1873.7777134860034,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 2111.6644842194155,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -274.5902820042111,
+          "energy_proxy_usd": 1818.174249582259,
+          "ecrs_proxy_usd": 55.174462436868666,
+          "degradation_usd": 2147.938994023337,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 4.5399239922971894e-13,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -519.4927389730633,
+          "energy_proxy_usd": 1593.8257675823957,
+          "ecrs_proxy_usd": 69.48432189053683,
+          "degradation_usd": 2182.802828445995,
+          "clipped_ecrs_intervals": 194,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 9224.789609954758,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 38319.09970460089,
+          "energy_proxy_usd": 42019.57265352054,
+          "ecrs_proxy_usd": 610.0531720831211,
+          "degradation_usd": 4310.5261210027675,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.1529278551962136e-09,
+          "terminal_soc": 0.5000000000000002,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 39935.03841656716,
+          "energy_proxy_usd": 40624.674126757745,
+          "ecrs_proxy_usd": 3290.6540425619646,
+          "degradation_usd": 3980.2897527525556,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 2.6433966127115127e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-09-30 05:00:00+00:00",
+      "end_exclusive": "2026-10-03 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": -6069.109219647963,
+          "energy_proxy_usd": -2730.878290424817,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 3338.230929223145,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000002
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -5756.545794140781,
+          "energy_proxy_usd": -2647.035686865951,
+          "ecrs_proxy_usd": 207.56069122935855,
+          "degradation_usd": 3317.07079850419,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.5343282200319663e-13,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -5946.7906753997095,
+          "energy_proxy_usd": -2768.239756237456,
+          "ecrs_proxy_usd": 208.6505982961883,
+          "degradation_usd": 3387.2015174584385,
+          "clipped_ecrs_intervals": 242,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 9075.78155247193,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 29022.628705691484,
+          "energy_proxy_usd": 31948.992593536837,
+          "ecrs_proxy_usd": 659.9977489380013,
+          "degradation_usd": 3586.361636783353,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 5.855066431692535e-12,
+          "terminal_soc": 0.5,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 29527.58785386828,
+          "energy_proxy_usd": 31738.437995262073,
+          "ecrs_proxy_usd": 1344.6781620562183,
+          "degradation_usd": 3555.5283034500194,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 8.177236665574128e-12,
+          "terminal_soc": 0.5,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-10-03 05:00:00+00:00",
+      "end_exclusive": "2026-10-06 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": -7381.139098653522,
+          "energy_proxy_usd": -5345.651085022339,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 2035.4880136311804,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -7250.225250473275,
+          "energy_proxy_usd": -5378.76266141646,
+          "ecrs_proxy_usd": 162.2116990841689,
+          "degradation_usd": 2033.6742881409841,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 2.036149027162537e-13,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -7458.197100727824,
+          "energy_proxy_usd": -5554.742558604876,
+          "ecrs_proxy_usd": 166.4942558219576,
+          "degradation_usd": 2069.948797944906,
+          "clipped_ecrs_intervals": 152,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 6198.269776749902,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 78821.86924773818,
+          "energy_proxy_usd": 82580.96900747236,
+          "ecrs_proxy_usd": 986.7204789156424,
+          "degradation_usd": 4745.820238649827,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 3.996125961000827e-12,
+          "terminal_soc": 0.5,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 80905.98043276113,
+          "energy_proxy_usd": 79788.44604433762,
+          "ecrs_proxy_usd": 5732.278378148039,
+          "degradation_usd": 4614.7439897245295,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 8.553047159409743e-12,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-10-12 05:00:00+00:00",
+      "end_exclusive": "2026-10-15 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": -1840.7123938736295,
+          "energy_proxy_usd": 1178.7908627061888,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 3019.5032565798156,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -1349.815764730848,
+          "energy_proxy_usd": 1115.6970672818366,
+          "ecrs_proxy_usd": 557.6178755475216,
+          "degradation_usd": 3023.1307075602085,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 2.3494539647117563e-12,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": -416.8403313903209,
+          "energy_proxy_usd": 1771.625253798467,
+          "ecrs_proxy_usd": 803.8317890380848,
+          "degradation_usd": 2992.2973742268755,
+          "clipped_ecrs_intervals": 235,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 11409.472186934938,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 41244.83550795977,
+          "energy_proxy_usd": 44279.84383921131,
+          "ecrs_proxy_usd": 1942.6190855467344,
+          "degradation_usd": 4977.62741679827,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.6046719508722163e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 42244.12735489115,
+          "energy_proxy_usd": 42627.672770403806,
+          "ecrs_proxy_usd": 4300.258471873844,
+          "degradation_usd": 4683.803887386506,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 7.617945803282793e-12,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-10-15 05:00:00+00:00",
+      "end_exclusive": "2026-10-18 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": 1736.1102522030822,
+          "energy_proxy_usd": 5110.6156912301485,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 3374.505439027066,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 2581.305972414308,
+          "energy_proxy_usd": 5114.784499656853,
+          "ecrs_proxy_usd": 786.0077729561497,
+          "degradation_usd": 3319.4863001986955,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 2.2310153724447447e-12,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 3004.9750691137097,
+          "energy_proxy_usd": 5740.711461585903,
+          "ecrs_proxy_usd": 688.577333018002,
+          "degradation_usd": 3424.3137254901953,
+          "clipped_ecrs_intervals": 400,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 23806.207736500754,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 28938.733118359803,
+          "energy_proxy_usd": 29392.895554843402,
+          "ecrs_proxy_usd": 2357.2504023548454,
+          "degradation_usd": 2811.412838838447,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.4924035340868613e-09,
+          "terminal_soc": 0.5,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 29214.00366652586,
+          "energy_proxy_usd": 29188.803446385187,
+          "ecrs_proxy_usd": 2513.7699217242134,
+          "degradation_usd": 2488.569701583545,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 2.277289468111121e-12,
+          "terminal_soc": 0.5,
+          "mip_gap": 0.0
+        }
+      ]
+    },
+    {
+      "start": "2026-10-18 05:00:00+00:00",
+      "end_exclusive": "2026-10-21 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": 6122.49815391803,
+          "energy_proxy_usd": 7851.466559706074,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 1728.9684057880431,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 6141.202766076806,
+          "energy_proxy_usd": 7760.727413464243,
+          "ecrs_proxy_usd": 140.2770917339409,
+          "degradation_usd": 1759.8017391213764,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 7.149836278586008e-14,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 5895.072299341552,
+          "energy_proxy_usd": 7567.901534742385,
+          "ecrs_proxy_usd": 147.4300200604155,
+          "degradation_usd": 1820.2592554612456,
+          "clipped_ecrs_intervals": 158,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 7601.181442774147,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 24046.626952974228,
+          "energy_proxy_usd": 27901.182337399434,
+          "ecrs_proxy_usd": 400.72127364383994,
+          "degradation_usd": 4255.27665806904,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 3.3232777640890276e-11,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 24454.961982350622,
+          "energy_proxy_usd": 27949.630706036914,
+          "ecrs_proxy_usd": 760.6079343827669,
+          "degradation_usd": 4255.276658069051,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 6.235234550899804e-12,
+          "terminal_soc": 0.5000000000000001,
+          "mip_gap": 1.487623988014079e-16
+        }
+      ]
+    },
+    {
+      "start": "2026-10-21 05:00:00+00:00",
+      "end_exclusive": "2026-10-24 05:00:00+00:00",
+      "results": [
+        {
+          "policy": "idle",
+          "intervals": 864,
+          "revenue_proxy_usd": 0.0,
+          "energy_proxy_usd": 0.0,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 0.0,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5
+        },
+        {
+          "policy": "energy_mpc",
+          "intervals": 864,
+          "revenue_proxy_usd": 4088.6354016416,
+          "energy_proxy_usd": 6178.535179978662,
+          "ecrs_proxy_usd": 0.0,
+          "degradation_usd": 2089.8997783370623,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 0.0,
+          "terminal_soc": 0.5000000000000002
+        },
+        {
+          "policy": "ecrs_mpc_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 4153.980089569155,
+          "energy_proxy_usd": 6203.457242481172,
+          "ecrs_proxy_usd": 24.09909601328075,
+          "degradation_usd": 2073.576248925298,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.3367085216486885e-13,
+          "terminal_soc": 0.5000000000000002
+        },
+        {
+          "policy": "ecrs_mpc_0.25h_executed_under_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 4203.003435651999,
+          "energy_proxy_usd": 6231.435773526924,
+          "ecrs_proxy_usd": 23.98378033141889,
+          "degradation_usd": 2052.4161182063435,
+          "clipped_ecrs_intervals": 173,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 6848.0187766214185,
+          "terminal_soc": 0.5000000000000001
+        },
+        {
+          "policy": "oracle_1h",
+          "intervals": 864,
+          "revenue_proxy_usd": 23930.00442878709,
+          "energy_proxy_usd": 28539.747434756748,
+          "ecrs_proxy_usd": 247.34083024784036,
+          "degradation_usd": 4857.0838362174945,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.6459724731866154e-11,
+          "terminal_soc": 0.5,
+          "mip_gap": 0.0
+        },
+        {
+          "policy": "oracle_0.25h",
+          "intervals": 864,
+          "revenue_proxy_usd": 24439.911524948155,
+          "energy_proxy_usd": 27826.21946217641,
+          "ecrs_proxy_usd": 1361.9523695774749,
+          "degradation_usd": 4748.26030680573,
+          "clipped_ecrs_intervals": 0,
+          "clipped_energy_intervals": 0,
+          "ecrs_shortfall_mw_intervals": 1.3663736808666727e-11,
+          "terminal_soc": 0.5,
+          "mip_gap": 0.0
+        }
+      ]
+    }
+  ],
+  "skipped_panels": [
+    {
+      "start": "2026-08-25 05:00:00+00:00",
+      "end_exclusive": "2026-08-28 05:00:00+00:00",
+      "reason": "6 missing or estimated rows in the panel or its history"
+    },
+    {
+      "start": "2026-08-28 05:00:00+00:00",
+      "end_exclusive": "2026-08-31 05:00:00+00:00",
+      "reason": "6 missing or estimated rows in the panel or its history"
+    },
+    {
+      "start": "2026-10-06 05:00:00+00:00",
+      "end_exclusive": "2026-10-09 05:00:00+00:00",
+      "reason": "3 missing or estimated rows in the panel or its history"
+    },
+    {
+      "start": "2026-10-09 05:00:00+00:00",
+      "end_exclusive": "2026-10-12 05:00:00+00:00",
+      "reason": "3 missing or estimated rows in the panel or its history"
+    }
+  ],
+  "conclusion_scope": "Reduced-model sensitivity on LMP/MCPC cash-flow proxies; not official settlement or deployment validation."
+}

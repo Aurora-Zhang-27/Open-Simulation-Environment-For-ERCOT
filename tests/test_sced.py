@@ -188,3 +188,56 @@ def test_complete_cache_can_be_read_offline(tmp_path, monkeypatch):
     f = sced.fetch_sced(sced.SCED_MCPC_DATASET, T0, T0+M, tmp_path,
                         "as_type", "ECRS", sced.MCPC_REQUIRED, log=lambda m: None)
     assert len(f) == 1
+
+
+# ------------------------------------------- tape for the ECRS model
+def _runs(start: str, n: int, values, col: str, extra: dict | None = None) -> pd.DataFrame:
+    ts = pd.date_range(start, periods=n, freq="5min", tz="UTC") + pd.Timedelta(seconds=20)
+    return pd.DataFrame({"sced_timestamp_utc": ts, col: values, **(extra or {})})
+
+
+def test_real_time_tape_adds_the_adder_and_takes_the_worst_status():
+    from rtcb_gym.data.sced import OBSERVED_STATUSES, real_time_tape
+
+    n = 13
+    lmp = _runs("2026-03-01T00:00Z", n, np.arange(n, dtype=float), "lmp")
+    adders = _runs("2026-03-01T00:00Z", n, np.full(n, 2.0), "rtrdpa")
+    mcpc = _runs("2026-03-01T00:00Z", n, np.full(n, 0.5), "mcpc").drop(index=6)  # one run without an ECRS price
+    lo, hi = pd.Timestamp("2026-03-01T00:05Z"), pd.Timestamp("2026-03-01T01:00Z")
+    tape = real_time_tape(lmp, adders, mcpc, lo, hi)
+    assert len(tape) == 11 and tape["interval_start_utc"].iloc[0] == lo
+    # price in effect: 20 s of the previous run, 280 s of this one
+    expected = (20 * np.arange(0, 11) + 280 * np.arange(1, 12)) / 300 + 2.0
+    np.testing.assert_allclose(tape["energy_price_usd_per_mwh"], expected)
+    np.testing.assert_allclose(tape["ecrs_price_usd_per_mw_h"], 0.5)
+    # run 6 (00:30:20) has no ECRS price: the intervals it prices are estimates
+    assert list(tape["ecrs_status"].iloc[5:7]) == ["imputed", "imputed"]
+    assert list(tape["status"].iloc[5:7]) == ["imputed", "imputed"]
+    assert tape["status"].drop(index=[5, 6]).isin(OBSERVED_STATUSES).all()
+    assert (tape["lmp_status"] == "ok").all()
+
+
+def test_read_sced_cache_reads_every_chunk_once_and_never_fetches(tmp_path):
+    from rtcb_gym.data.sced import read_sced_cache
+
+    with pytest.raises(FileNotFoundError, match="download_5min"):
+        read_sced_cache(tmp_path, "some_dataset", "HB_WEST")
+    folder = tmp_path / "gridstatusio" / "some_dataset" / "HB_WEST"
+    folder.mkdir(parents=True)
+    a = _runs("2026-03-01T00:00Z", 6, np.arange(6.0), "lmp")
+    a.iloc[:4].to_parquet(folder / "a.parquet", index=False)
+    a.iloc[2:].to_parquet(folder / "b.parquet", index=False)  # overlapping download
+    assert len(read_sced_cache(tmp_path, "some_dataset", "HB_WEST")) == 6
+
+
+def test_day_ahead_ecrs_prices_by_hour():
+    from rtcb_gym.data.sced import day_ahead_ecrs_prices
+
+    hours = pd.date_range("2026-03-01T06:00Z", periods=3, freq="h")
+    raw = pd.DataFrame({"interval_start_utc": list(hours) + [hours[0]], "market": "DAM",
+                        "ercot_contingency_reserve_service": [1.0, None, 3.0, 1.0]})
+    s = day_ahead_ecrs_prices(raw)
+    assert list(s.index) == [hours[0], hours[2]] and list(s) == [1.0, 3.0]
+    raw.loc[3, "ercot_contingency_reserve_service"] = 9.0
+    with pytest.raises(ValueError, match="two different prices"):
+        day_ahead_ecrs_prices(raw)

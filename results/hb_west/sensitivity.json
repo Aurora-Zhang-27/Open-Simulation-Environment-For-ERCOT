@@ -1,0 +1,1128 @@
+{
+  "config": {
+    "market": {
+      "iso": "ERCOT",
+      "market": "REAL_TIME_15_MIN",
+      "location": "HB_WEST",
+      "timezone": "US/Central",
+      "start_date": "2025-12-05",
+      "end_date": "2026-10-24"
+    },
+    "data": {
+      "provider": "gridstatusio",
+      "dataset": "ercot_spp_real_time_15_min",
+      "raw_dir": "data/raw",
+      "processed_dir": "data/processed",
+      "sleep_sec": 2,
+      "expected_sha256": "a588daed478fc7dbba60aa144e264fb4ce49c92845188214dea43596a80009d0"
+    },
+    "battery": {
+      "power_mw": 100.0,
+      "energy_mwh": 200.0,
+      "rte": 0.85,
+      "soc_min": 0.0,
+      "soc_max": 1.0,
+      "soc_init": 0.0,
+      "soc_terminal_min": 0.0,
+      "degradation_cost_usd_per_mwh": 2.0
+    },
+    "env": {
+      "episode_days": 1,
+      "history_len": 96,
+      "dt_hours": 0.25
+    },
+    "splits": {
+      "train": [
+        "2025-12-05",
+        "2026-06-30"
+      ],
+      "validation": [
+        "2026-07-01",
+        "2026-08-24"
+      ],
+      "test": [
+        "2026-08-25",
+        "2026-10-24"
+      ]
+    },
+    "baselines": {
+      "threshold_rule": {
+        "low_quantiles": [
+          0.1,
+          0.2,
+          0.3,
+          0.4
+        ],
+        "high_quantiles": [
+          0.6,
+          0.7,
+          0.8,
+          0.9
+        ]
+      },
+      "rolling_threshold": {
+        "window_days": 30,
+        "min_window_days": 7,
+        "low_quantiles": [
+          0.1,
+          0.2,
+          0.3,
+          0.4
+        ],
+        "high_quantiles": [
+          0.6,
+          0.7,
+          0.8,
+          0.9
+        ]
+      },
+      "forecast_mpc": {
+        "forecast": "persistence_24h"
+      }
+    },
+    "day_ahead": {
+      "dataset": "ercot_spp_day_ahead_hourly",
+      "market": "DAY_AHEAD_HOURLY",
+      "decision_time": "10:00",
+      "history_days": 7,
+      "expected_sha256": "ee0fd9974f117b07e957b114bd973f2a7890356e02040221b690fae5f344cfe7"
+    },
+    "energy_ecrs": {
+      "duration_hours": 1.0,
+      "history_len": 288,
+      "soc_init": 0.5,
+      "soc_terminal_min": 0.5,
+      "mpc": {
+        "persistence_horizon_steps": 12,
+        "day_ahead_horizon_steps": 288,
+        "day_ahead_replan_every": 3
+      }
+    },
+    "cross_day": {
+      "soc_init": 0.5,
+      "soc_terminal_min": 0.5,
+      "episode_days": 7
+    },
+    "sensitivity": {
+      "energy_mwh": [
+        100.0,
+        200.0,
+        400.0
+      ]
+    }
+  },
+  "data_sha256": {
+    "real-time prices": "a588daed478fc7dbba60aa144e264fb4ce49c92845188214dea43596a80009d0",
+    "day-ahead prices": "ee0fd9974f117b07e957b114bd973f2a7890356e02040221b690fae5f344cfe7"
+  },
+  "rows": [
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        476634.45653654257,
+        966171.7598381091
+      ],
+      "capture_ci95": [
+        1.0,
+        1.0
+      ],
+      "top5_days_share": 0.37723474350015734,
+      "capture_rate_without_top5_days": 1.0,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "Perfect foresight (DA + RT)",
+      "days": 53,
+      "revenue_usd": 702667.1031719273,
+      "capture_rate": 1.0,
+      "efc_per_day": 1.713416536396987,
+      "n_clipped": 0,
+      "da_revenue_usd": -56395.45682294263,
+      "rt_revenue_usd": 795506.9835066702,
+      "degradation_cost_usd": 36444.42351179988,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 132.57869871168438
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        215672.5675755297,
+        470792.21389493137
+      ],
+      "capture_ci95": [
+        0.44155590923852184,
+        0.501997182191453
+      ],
+      "top5_days_share": 0.41419075088324886,
+      "capture_rate_without_top5_days": 0.44963634563097704,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "Perfect foresight (RT only)",
+      "days": 53,
+      "revenue_usd": 335876.16240820923,
+      "capture_rate": 0.47800183172375965,
+      "efc_per_day": 1.713416536396987,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 372320.5859200092,
+      "degradation_cost_usd": 36444.42351179988,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 63.37286083173759
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        136867.3400589654,
+        283206.25871619786
+      ],
+      "capture_ci95": [
+        0.23296783539765561,
+        0.3736839366965422
+      ],
+      "top5_days_share": 0.3194221556443135,
+      "capture_rate_without_top5_days": 0.3425164083355048,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "DA schedule, delivered",
+      "days": 53,
+      "revenue_usd": 207154.8735949601,
+      "capture_rate": 0.2948122555614701,
+      "efc_per_day": 1.0188679245283019,
+      "n_clipped": 0,
+      "da_revenue_usd": 228826.22633104422,
+      "rt_revenue_usd": -7.259579604124156e-11,
+      "degradation_cost_usd": 21671.352736083718,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 39.08582520659625
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        138193.2151122672,
+        288894.37573699845
+      ],
+      "capture_ci95": [
+        0.23521160522431983,
+        0.37649235920503893
+      ],
+      "top5_days_share": 0.33123970825866755,
+      "capture_rate_without_top5_days": 0.33962385555169483,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "DA schedule + MPC on DA prices",
+      "days": 53,
+      "revenue_usd": 209813.928081102,
+      "capture_rate": 0.2985964863503296,
+      "efc_per_day": 1.0188679245283023,
+      "n_clipped": 0,
+      "da_revenue_usd": 228826.22633104422,
+      "rt_revenue_usd": 2659.0544861418066,
+      "degradation_cost_usd": 21671.352736083794,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 39.58753360020793
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        108670.14181405878,
+        244608.02667344868
+      ],
+      "capture_ci95": [
+        0.2079323642536461,
+        0.2921705163673313
+      ],
+      "top5_days_share": 0.3986426417940251,
+      "capture_rate_without_top5_days": 0.25086588208592936,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "MPC on DA prices",
+      "days": 53,
+      "revenue_usd": 175673.04344154935,
+      "capture_rate": 0.25000891979792317,
+      "efc_per_day": 1.0188679245283023,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 197344.39617763305,
+      "degradation_cost_usd": 21671.352736083794,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 33.14585725312252
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        59314.896299847125,
+        227136.22286229444
+      ],
+      "capture_ci95": [
+        0.0877717924669065,
+        0.3019391159834745
+      ],
+      "top5_days_share": 0.4723095360409959,
+      "capture_rate_without_top5_days": 0.21600957398464973,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "Forecast + MPC",
+      "days": 53,
+      "revenue_usd": 135356.5249247099,
+      "capture_rate": 0.19263250593872064,
+      "efc_per_day": 1.6944239564946741,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 171396.97566582717,
+      "degradation_cost_usd": 36040.45074111737,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 25.538966966926395
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        863440.8068243329,
+        1493082.1474657392
+      ],
+      "capture_ci95": [
+        1.0,
+        1.0
+      ],
+      "top5_days_share": 0.33322043641722593,
+      "capture_rate_without_top5_days": 1.0,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "Perfect foresight (DA + RT)",
+      "days": 59,
+      "revenue_usd": 1147337.1068990696,
+      "capture_rate": 1.0,
+      "efc_per_day": 2.2179148964208433,
+      "n_clipped": 0,
+      "da_revenue_usd": -146166.22222647292,
+      "rt_revenue_usd": 1346169.028152915,
+      "degradation_cost_usd": 52665.69902737211,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 194.46391642357113
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        412844.77353550936,
+        773815.6141887126
+      ],
+      "capture_ci95": [
+        0.46614896337340417,
+        0.5256140893790698
+      ],
+      "top5_days_share": 0.3635859232801417,
+      "capture_rate_without_top5_days": 0.4793550310250622,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "Perfect foresight (RT only)",
+      "days": 59,
+      "revenue_usd": 571364.6455234432,
+      "capture_rate": 0.4979919520494562,
+      "efc_per_day": 2.2179148964208433,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 624030.344550816,
+      "degradation_cost_usd": 52665.69902737211,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 96.84146534295648
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        225113.79918962205,
+        337271.63104379637
+      ],
+      "capture_ci95": [
+        0.18806620652640849,
+        0.30528724206685237
+      ],
+      "top5_days_share": 0.20059286357640438,
+      "capture_rate_without_top5_days": 0.3093612561749096,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "DA schedule, delivered",
+      "days": 59,
+      "revenue_usd": 274424.9276582647,
+      "capture_rate": 0.23918421709549542,
+      "efc_per_day": 1.302439133753535,
+      "n_clipped": 0,
+      "da_revenue_usd": 305264.0286806032,
+      "rt_revenue_usd": -1.0769831361468886e-10,
+      "degradation_cost_usd": 30839.101022338476,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 46.51269960309571
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        215336.10224930968,
+        357937.4662358997
+      ],
+      "capture_ci95": [
+        0.17923746922999362,
+        0.3320589119727917
+      ],
+      "top5_days_share": 0.22997610976798846,
+      "capture_rate_without_top5_days": 0.32723634288105735,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "DA schedule + MPC on DA prices",
+      "days": 59,
+      "revenue_usd": 284379.8508555096,
+      "capture_rate": 0.2478607631057175,
+      "efc_per_day": 1.3363374388382816,
+      "n_clipped": 0,
+      "da_revenue_usd": 305264.0286806032,
+      "rt_revenue_usd": 10757.565891173765,
+      "degradation_cost_usd": 31641.74371626766,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 48.19997472127281
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        175790.82810483722,
+        389391.7392192805
+      ],
+      "capture_ci95": [
+        0.17842336273215084,
+        0.29374553634100503
+      ],
+      "top5_days_share": 0.374391241978703,
+      "capture_rate_without_top5_days": 0.2402598847529245,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "MPC on DA prices",
+      "days": 59,
+      "revenue_usd": 266500.14118434885,
+      "capture_rate": 0.2322771045945023,
+      "efc_per_day": 1.3363374388382816,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 298141.8849006164,
+      "degradation_cost_usd": 31641.74371626766,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 45.16951545497438
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        98582.24864696701,
+        321784.86390034214
+      ],
+      "capture_ci95": [
+        0.09918104765292297,
+        0.2468164842339688
+      ],
+      "top5_days_share": 0.520462289937397,
+      "capture_rate_without_top5_days": 0.15779351532693103,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "Forecast + MPC",
+      "days": 59,
+      "revenue_usd": 197065.85874812526,
+      "capture_rate": 0.17175933521468595,
+      "efc_per_day": 2.178619230862591,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 248801.1165990268,
+      "degradation_cost_usd": 51735.25785090154,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 100.0,
+      "duration_hours": 1.0,
+      "usd_per_mw_day": 33.400993008156824
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        775681.7040456544,
+        1520238.3259761217
+      ],
+      "capture_ci95": [
+        1.0,
+        1.0
+      ],
+      "top5_days_share": 0.3604239575438138,
+      "capture_rate_without_top5_days": 1.0,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "Perfect foresight (DA + RT)",
+      "days": 53,
+      "revenue_usd": 1120827.58221685,
+      "capture_rate": 1.0,
+      "efc_per_day": 1.3882571534748156,
+      "n_clipped": 0,
+      "da_revenue_usd": -53614.10614725352,
+      "rt_revenue_usd": 1233498.2348252602,
+      "degradation_cost_usd": 59056.54646115735,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 211.47690230506603
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        358781.93548159715,
+        729507.4559122671
+      ],
+      "capture_ci95": [
+        0.44377962950266503,
+        0.5113504972909597
+      ],
+      "top5_days_share": 0.3882936305041291,
+      "capture_rate_without_top5_days": 0.4596325834513042,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "Perfect foresight (RT only)",
+      "days": 53,
+      "revenue_usd": 538640.2498295185,
+      "capture_rate": 0.4805736924890434,
+      "efc_per_day": 1.3882571534748156,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 597696.7962906754,
+      "degradation_cost_usd": 59056.54646115735,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 101.63023581689029
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        268193.1876293372,
+        552143.0065107971
+      ],
+      "capture_ci95": [
+        0.2823792672406176,
+        0.455422311535575
+      ],
+      "top5_days_share": 0.32128097897284513,
+      "capture_rate_without_top5_days": 0.4076680867405742,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "DA schedule, delivered",
+      "days": 53,
+      "revenue_usd": 403958.73020233796,
+      "capture_rate": 0.3604111253252356,
+      "efc_per_day": 1.0102325687650309,
+      "n_clipped": 0,
+      "da_revenue_usd": 446934.0870982249,
+      "rt_revenue_usd": -1.5475471570880468e-10,
+      "degradation_cost_usd": 42975.356895885474,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 76.21862834006376
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        265606.931754895,
+        532003.1395287896
+      ],
+      "capture_ci95": [
+        0.2630866316175306,
+        0.4594531100430243
+      ],
+      "top5_days_share": 0.3250134533435564,
+      "capture_rate_without_top5_days": 0.41987013068601414,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "DA schedule + MPC on DA prices",
+      "days": 53,
+      "revenue_usd": 390586.09324921854,
+      "capture_rate": 0.3484800868985491,
+      "efc_per_day": 1.0102325687650315,
+      "n_clipped": 0,
+      "da_revenue_usd": 446934.0870982249,
+      "rt_revenue_usd": -13372.636953119574,
+      "degradation_cost_usd": 42975.35689588561,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 73.69548929230538
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        218848.32858268873,
+        457793.4807893125
+      ],
+      "capture_ci95": [
+        0.2617951893200037,
+        0.3432952838068238
+      ],
+      "top5_days_share": 0.361995184647082,
+      "capture_rate_without_top5_days": 0.30926525014440537,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "MPC on DA prices",
+      "days": 53,
+      "revenue_usd": 338807.3893147076,
+      "capture_rate": 0.302283236681766,
+      "efc_per_day": 1.0102325687650315,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 381782.7462105932,
+      "degradation_cost_usd": 42975.35689588561,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 63.92592251220898
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        147907.90715073928,
+        410166.13268897095
+      ],
+      "capture_ci95": [
+        0.13770715380379908,
+        0.3413303626451504
+      ],
+      "top5_days_share": 0.4118108220253507,
+      "capture_rate_without_top5_days": 0.2569524616319111,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "Forecast + MPC",
+      "days": 53,
+      "revenue_usd": 267206.5189266209,
+      "capture_rate": 0.23840109144898222,
+      "efc_per_day": 1.3795594700245395,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 325893.06538777833,
+      "degradation_cost_usd": 58686.546461157326,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 50.41632432577753
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        1393178.414197519,
+        2395825.1440773895
+      ],
+      "capture_ci95": [
+        1.0,
+        1.0
+      ],
+      "top5_days_share": 0.33193771287259494,
+      "capture_rate_without_top5_days": 1.0,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "Perfect foresight (DA + RT)",
+      "days": 59,
+      "revenue_usd": 1837999.3039436033,
+      "capture_rate": 1.0,
+      "efc_per_day": 1.748352823912532,
+      "n_clipped": 0,
+      "da_revenue_usd": -205986.85884099148,
+      "rt_revenue_usd": 2126931.017395489,
+      "degradation_cost_usd": 82944.8546108919,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 311.52530575315313
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        677340.0507267533,
+        1258918.4678602295
+      ],
+      "capture_ci95": [
+        0.47229268111078027,
+        0.5367075532148542
+      ],
+      "top5_days_share": 0.3645557372947009,
+      "capture_rate_without_top5_days": 0.488539138768473,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "Perfect foresight (RT only)",
+      "days": 59,
+      "revenue_usd": 929058.2264230745,
+      "capture_rate": 0.5054725670622895,
+      "efc_per_day": 1.748352823912532,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 1012003.0810339667,
+      "degradation_cost_usd": 82944.8546108919,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 157.46749600391092
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        436601.34403926827,
+        657870.6520294364
+      ],
+      "capture_ci95": [
+        0.22934352289795873,
+        0.37041870187884085
+      ],
+      "top5_days_share": 0.20036656883010204,
+      "capture_rate_without_top5_days": 0.37414104440228885,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "DA schedule, delivered",
+      "days": 59,
+      "revenue_usd": 534222.1377071859,
+      "capture_rate": 0.2906541567023237,
+      "efc_per_day": 1.2544612452482224,
+      "n_clipped": 0,
+      "da_revenue_usd": 593628.3027528056,
+      "rt_revenue_usd": -2.2703297020143503e-10,
+      "degradation_cost_usd": 59406.16504562005,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 90.54612503511625
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        459975.5256812887,
+        704557.2762686416
+      ],
+      "capture_ci95": [
+        0.24386359965925544,
+        0.395828664303171
+      ],
+      "top5_days_share": 0.23371732781698798,
+      "capture_rate_without_top5_days": 0.38772238414639365,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "DA schedule + MPC on DA prices",
+      "days": 59,
+      "revenue_usd": 572101.1610336791,
+      "capture_rate": 0.3112629911263739,
+      "efc_per_day": 1.2857139383237925,
+      "n_clipped": 0,
+      "da_revenue_usd": 593628.3027528056,
+      "rt_revenue_usd": 39359.023326493225,
+      "degradation_cost_usd": 60886.16504562033,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 96.9662984802846
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        369937.6238326332,
+        804764.5595102472
+      ],
+      "capture_ci95": [
+        0.23924249789549903,
+        0.3640158133801563
+      ],
+      "top5_days_share": 0.3860649758134887,
+      "capture_rate_without_top5_days": 0.29702258874406157,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "MPC on DA prices",
+      "days": 59,
+      "revenue_usd": 555360.8776532757,
+      "capture_rate": 0.3021551077096144,
+      "efc_per_day": 1.2857139383237925,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 616247.0426988958,
+      "degradation_cost_usd": 60886.16504562033,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 94.12896231411453
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        252382.56982882108,
+        666777.4696606308
+      ],
+      "capture_ci95": [
+        0.15858990147807384,
+        0.3118680246053446
+      ],
+      "top5_days_share": 0.473181525201987,
+      "capture_rate_without_top5_days": 0.20937948673681905,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "Forecast + MPC",
+      "days": 59,
+      "revenue_usd": 435337.66282697004,
+      "capture_rate": 0.2368540955880187,
+      "efc_per_day": 1.7291086002828313,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 517371.1895435557,
+      "degradation_cost_usd": 82033.52671658565,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 200.0,
+      "duration_hours": 2.0,
+      "usd_per_mw_day": 73.78604454694408
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        1119286.3877204873,
+        2077586.5293429724
+      ],
+      "capture_ci95": [
+        1.0,
+        1.0
+      ],
+      "top5_days_share": 0.3276572344893213,
+      "capture_rate_without_top5_days": 1.0,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "Perfect foresight (DA + RT)",
+      "days": 53,
+      "revenue_usd": 1565630.9869631347,
+      "capture_rate": 1.0,
+      "efc_per_day": 1.1479115652672478,
+      "n_clipped": 0,
+      "da_revenue_usd": -20328.98532890995,
+      "rt_revenue_usd": 1683624.4323927145,
+      "degradation_cost_usd": 97664.46010067138,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 295.4020730119122
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        532662.8193807846,
+        1033002.7198491443
+      ],
+      "capture_ci95": [
+        0.45459218807153856,
+        0.5358846687652175
+      ],
+      "top5_days_share": 0.36206397314222927,
+      "capture_rate_without_top5_days": 0.47149491799369275,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "Perfect foresight (RT only)",
+      "days": 53,
+      "revenue_usd": 778000.7780171069,
+      "capture_rate": 0.49692474439727363,
+      "efc_per_day": 1.1479115652672478,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 875665.2381177784,
+      "degradation_cost_usd": 97664.46010067138,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 146.79259962586923
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        459310.55505697365,
+        933482.3380354823
+      ],
+      "capture_ci95": [
+        0.345155645149014,
+        0.5457843461635644
+      ],
+      "top5_days_share": 0.3107300815558957,
+      "capture_rate_without_top5_days": 0.4802350408275104,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "DA schedule, delivered",
+      "days": 53,
+      "revenue_usd": 689348.100383291,
+      "capture_rate": 0.4403004961727439,
+      "efc_per_day": 0.9964809286192366,
+      "n_clipped": 0,
+      "da_revenue_usd": 774128.8229048502,
+      "rt_revenue_usd": -4.0302214898701993e-11,
+      "degradation_cost_usd": 84780.72252155995,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 130.06567931760208
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        471240.2873481855,
+        926711.6216779649
+      ],
+      "capture_ci95": [
+        0.3471575290362378,
+        0.5463439387266966
+      ],
+      "top5_days_share": 0.31134656655863446,
+      "capture_rate_without_top5_days": 0.48569467404118527,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "DA schedule + MPC on DA prices",
+      "days": 53,
+      "revenue_usd": 692047.4646494045,
+      "capture_rate": 0.4420246344202562,
+      "efc_per_day": 0.9964809286192309,
+      "n_clipped": 0,
+      "da_revenue_usd": 774128.8229048502,
+      "rt_revenue_usd": 2699.364266113514,
+      "degradation_cost_usd": 84780.72252156012,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 130.57499333007632
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        393072.0087674778,
+        817547.4836255165
+      ],
+      "capture_ci95": [
+        0.32228816588342624,
+        0.4443852681265304
+      ],
+      "top5_days_share": 0.38737648717541157,
+      "capture_rate_without_top5_days": 0.35585746807320073,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "MPC on DA prices",
+      "days": 53,
+      "revenue_usd": 602416.212824493,
+      "capture_rate": 0.3847753511783794,
+      "efc_per_day": 0.9964809286192309,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 687196.9353460529,
+      "degradation_cost_usd": 84780.72252156012,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 113.6634363819798
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        291195.7836944615,
+        714409.3745997233
+      ],
+      "capture_ci95": [
+        0.23461593134525066,
+        0.40304603915396886
+      ],
+      "top5_days_share": 0.3961378760295573,
+      "capture_rate_without_top5_days": 0.29433648840077725,
+      "ecrs_revenue_usd": 0.0,
+      "split": "validation",
+      "policy": "Forecast + MPC",
+      "days": 53,
+      "revenue_usd": 503072.4349880761,
+      "capture_rate": 0.3213224822305601,
+      "efc_per_day": 1.1446499339733942,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 600459.3950887476,
+      "degradation_cost_usd": 97386.96010067132,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 94.91932735624077
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        1993595.6965935724,
+        3391841.7767911274
+      ],
+      "capture_ci95": [
+        1.0,
+        1.0
+      ],
+      "top5_days_share": 0.3200374350526213,
+      "capture_rate_without_top5_days": 1.0,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "Perfect foresight (DA + RT)",
+      "days": 59,
+      "revenue_usd": 2605332.5621212684,
+      "capture_rate": 1.0,
+      "efc_per_day": 1.3563494465839518,
+      "n_clipped": 0,
+      "da_revenue_usd": -202528.34740748105,
+      "rt_revenue_usd": 2936473.258427157,
+      "degradation_cost_usd": 128612.34889840802,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 441.58179019004547
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        995499.2433312807,
+        1846716.9181055976
+      ],
+      "capture_ci95": [
+        0.4831084210608074,
+        0.5590240834081428
+      ],
+      "top5_days_share": 0.35496678142022464,
+      "capture_rate_without_top5_days": 0.4949896900633009,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "Perfect foresight (RT only)",
+      "days": 59,
+      "revenue_usd": 1359446.882853446,
+      "capture_rate": 0.5217939938333941,
+      "efc_per_day": 1.3563494465839518,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 1488059.2317518548,
+      "degradation_cost_usd": 128612.34889840802,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 230.41472590736373
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        758667.1450651737,
+        1174641.0227184182
+      ],
+      "capture_ci95": [
+        0.2863962694040181,
+        0.4490782639623294
+      ],
+      "top5_days_share": 0.21345890368472706,
+      "capture_rate_without_top5_days": 0.42863903594088193,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "DA schedule, delivered",
+      "days": 59,
+      "revenue_usd": 938278.5771566448,
+      "capture_rate": 0.3601377385744168,
+      "efc_per_day": 1.156319454655985,
+      "n_clipped": 0,
+      "da_revenue_usd": 1047795.7178877058,
+      "rt_revenue_usd": -4.751852245021838e-11,
+      "degradation_cost_usd": 109517.14073106114,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 159.03026731468557
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        828944.7821467471,
+        1223665.2657307636
+      ],
+      "capture_ci95": [
+        0.31211653373962883,
+        0.4755104202159346
+      ],
+      "top5_days_share": 0.21664153725326926,
+      "capture_rate_without_top5_days": 0.46141129518207824,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "DA schedule + MPC on DA prices",
+      "days": 59,
+      "revenue_usd": 1003336.9063799047,
+      "capture_rate": 0.3851089572852785,
+      "efc_per_day": 1.1681541141662075,
+      "n_clipped": 0,
+      "da_revenue_usd": 1047795.7178877058,
+      "rt_revenue_usd": 66179.211576201,
+      "degradation_cost_usd": 110638.02308400252,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 170.05710277625505
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        672473.1761776388,
+        1436001.2746797549
+      ],
+      "capture_ci95": [
+        0.3105466100800378,
+        0.4494126498353457
+      ],
+      "top5_days_share": 0.39124749161823624,
+      "capture_rate_without_top5_days": 0.3414746287915984,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "MPC on DA prices",
+      "days": 59,
+      "revenue_usd": 993724.1599335957,
+      "capture_rate": 0.3814193145171851,
+      "efc_per_day": 1.1681541141662075,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 1104362.183017598,
+      "degradation_cost_usd": 110638.02308400252,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 168.4278237175586
+    },
+    {
+      "bound": "Perfect foresight (DA + RT)",
+      "revenue_ci95_usd": [
+        495146.229052158,
+        1216643.2378203094
+      ],
+      "capture_ci95": [
+        0.22092801226434003,
+        0.3906361134202744
+      ],
+      "top5_days_share": 0.4542973206788531,
+      "capture_rate_without_top5_days": 0.24692474035265882,
+      "ecrs_revenue_usd": 0.0,
+      "split": "test",
+      "policy": "Forecast + MPC",
+      "days": 59,
+      "revenue_usd": 801598.1210892998,
+      "capture_rate": 0.3076759307981153,
+      "efc_per_day": 1.3450318353047483,
+      "n_clipped": 0,
+      "da_revenue_usd": 0.0,
+      "rt_revenue_usd": 929138.5582230017,
+      "degradation_cost_usd": 127540.43713370201,
+      "n_da_clipped_hours": 0,
+      "energy_mwh": 400.0,
+      "duration_hours": 4.0,
+      "usd_per_mw_day": 135.8640883202203
+    }
+  ]
+}

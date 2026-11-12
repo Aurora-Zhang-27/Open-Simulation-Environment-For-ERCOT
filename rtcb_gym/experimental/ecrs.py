@@ -3,96 +3,28 @@
 This is a conservative, discharge-side-only, price-taking subset. ECRS is
 awarded in full and never deployed. Five-minute energy LMP cash flows are
 proxies, not ERCOT's complete 15-minute settlement. See docs/ecrs_gate.md.
+
+The reservation rule, its feasibility step and the MILP live in
+:mod:`rtcb_gym.ancillary`, shared with :class:`rtcb_gym.env.RTCBEnv`; this
+module keeps the strict five-minute tape and the continuous-panel
+environment used by the ECRS gate (scripts/run_ecrs_gate.py).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import gymnasium as gym
 import numpy as np
 import pandas as pd
-from scipy.optimize import Bounds, LinearConstraint, milp
-from scipy.sparse import coo_matrix
 
-from rtcb_gym.battery import BatteryParams, battery_step, terminal_floor
+from rtcb_gym.ancillary import (  # noqa: F401  (re-exported)
+    TOL_MW, ECRSRules, ReservationPlan, ecrs_capacity_mw, reservation_revenue,
+    reservation_step, solve_reservation,
+)
+from rtcb_gym.battery import BatteryParams, terminal_floor
 
 DT_HOURS = 5 / 60
 STEP = pd.Timedelta(minutes=5)
-TOL_MW = 1e-4
-
-
-@dataclass(frozen=True)
-class ECRSRules:
-    """One-hour requirement; other durations are labelled sensitivity models.
-
-    Shared power and post-dispatch reserve are deliberate conservative model
-    choices. They have NOT been certified as the full SCED feasible region.
-    """
-    duration_hours: float = 1.0
-
-    def __post_init__(self) -> None:
-        if not np.isfinite(self.duration_hours) or self.duration_hours <= 0:
-            raise ValueError("duration_hours must be finite and positive")
-
-    @property
-    def rule_id(self) -> str:
-        prefix = "ecrs" if self.duration_hours == 1 else "sensitivity"
-        return f"{prefix}-{self.duration_hours:g}h-discharge-reservation-v1"
-
-
-def ecrs_capacity_mw(
-    params: BatteryParams, rules: ECRSRules, power_mw: float, soc_after: float,
-) -> float:
-    """Available upward reserve after base dispatch, in this reduced model.
-
-    No ECRS while charging. Discharge + ECRS <= rated power. Remaining
-    stored energy must sustain the award for the configured full duration.
-    """
-    if power_mw < -1e-8:
-        return 0.0
-    available = max(0.0, (soc_after - params.soc_min) * params.energy_mwh)
-    return max(0.0, min(
-        params.power_mw - max(power_mw, 0.0),
-        available * params.eta_discharge / rules.duration_hours,
-    ))
-
-
-def reservation_step(
-    params: BatteryParams, rules: ECRSRules, soc: float,
-    requested_mw: np.ndarray, steps_left: int,
-) -> tuple[np.ndarray, float, dict[str, Any]]:
-    """Execute energy first, then clip the ECRS request to remaining capacity."""
-    request = np.asarray(requested_mw, dtype=float)
-    if request.shape != (2,) or not np.isfinite(request).all():
-        raise ValueError("action must contain two finite numbers: energy MW, ECRS MW")
-    power, next_soc, info = battery_step(
-        params, soc, request[0], DT_HOURS, steps_left=steps_left,
-    )
-    cap = ecrs_capacity_mw(params, rules, power, next_soc)
-    award = float(np.clip(request[1], 0.0, cap))
-    actual = np.array([power, award])
-    info.update(
-        requested_mw=request.copy(), actual_mw=actual.copy(),
-        ecrs_capacity_mw=cap,
-        energy_clipped=bool(abs(request[0] - power) > TOL_MW),
-        ecrs_clipped=bool(abs(request[1] - award) > TOL_MW),
-    )
-    return actual, next_soc, info
-
-
-def reservation_revenue(
-    actual_mw: np.ndarray, prices: np.ndarray, params: BatteryParams,
-) -> dict[str, float]:
-    """LMP/MCPC revenue proxy; degradation applies only to executed energy."""
-    x, p = np.asarray(actual_mw, dtype=float), np.asarray(prices, dtype=float)
-    if x.shape != (2,) or p.shape != (2,) or not np.isfinite(np.r_[x, p]).all():
-        raise ValueError("actual_mw and prices must each have two finite values")
-    energy = float(x[0] * p[0] * DT_HOURS)
-    ecrs = float(x[1] * p[1] * DT_HOURS)
-    deg = float(abs(x[0]) * params.degradation_cost_usd_per_mwh * DT_HOURS)
-    return dict(energy_proxy_usd=energy, ecrs_proxy_usd=ecrs,
-                degradation_usd=deg, net_proxy_usd=energy + ecrs - deg)
 
 
 class FiveMinuteTape:
@@ -216,86 +148,3 @@ class ECRSReservationEnv(gym.Env):
                     settled_interval_start_utc=self.tape.starts[t],
                     settled_prices=self.tape.prices[t].copy())
         return self._observation(), ledger["net_proxy_usd"], self._t >= self.stop, False, info
-
-
-@dataclass(frozen=True)
-class ReservationPlan:
-    actions_mw: np.ndarray
-    soc_after: np.ndarray
-    net_proxy_usd: float
-    mip_gap: float
-
-
-def solve_reservation(
-    prices: np.ndarray, params: BatteryParams, rules: ECRSRules, soc0: float,
-    *, soc_end_min: float | None = None, time_limit: float = 60.,
-    tie_break_usd_per_mwh: float = 0.,
-) -> ReservationPlan:
-    """MILP oracle/forecast planner for exactly the reduced environment model.
-
-    Variables: charge, discharge, ECRS, stored energy, binary discharge mode.
-    Nonzero ECRS excludes charging; discharge + ECRS <= P. The reserve
-    inventory inequality uses energy AFTER base dispatch, as does the env.
-    Returns only a proven optimal solve (within solver numerical tolerance).
-
-    Ties: many plans can earn the same (e.g. several zero-price steps to
-    charge in, or free reserve), and which one a solver returns can change
-    between solver versions. ``tie_break_usd_per_mwh`` > 0 adds a small cost
-    per MWh of charge, discharge and ECRS: the full amount in the first step,
-    falling linearly to 1/T of it in the last. Equal-profit plans then
-    resolve to the one that acts least and latest. It can also give up at
-    most that amount per MWh of activity, so leave it at 0 for an exact
-    oracle. ``net_proxy_usd`` is always the plan's unpenalized value.
-    """
-    prices = np.asarray(prices, dtype=float)
-    if prices.ndim != 2 or prices.shape[1] != 2 or not len(prices) or not np.isfinite(prices).all():
-        raise ValueError("prices must be finite, nonempty, shape (T, 2)")
-    if not np.isfinite(soc0) or not params.soc_min <= soc0 <= params.soc_max:
-        raise ValueError("soc0 outside battery limits")
-    end_min = params.soc_terminal_min if soc_end_min is None else float(soc_end_min)
-    if not np.isfinite(end_min) or not 0 <= end_min <= params.soc_max:
-        raise ValueError("invalid terminal SoC")
-    T, P, E = len(prices), params.power_mw, params.energy_mwh
-    c, d, a, e, u = 0, T, 2*T, 3*T, 4*T+1
-    N = 5*T+1
-    cost = np.zeros(N)
-    cost[c:c+T] = (prices[:, 0] + params.degradation_cost_usd_per_mwh) * DT_HOURS
-    cost[d:d+T] = -(prices[:, 0] - params.degradation_cost_usd_per_mwh) * DT_HOURS
-    cost[a:a+T] = -prices[:, 1] * DT_HOURS
-    lower, upper = np.zeros(N), np.full(N, P)
-    lower[e:e+T+1], upper[e:e+T+1] = params.soc_min*E, params.soc_max*E
-    lower[e] = upper[e] = soc0*E
-    lower[e+T] = max(params.soc_min, end_min)*E
-    upper[u:] = 1.
-    integ = np.zeros(N); integ[u:] = 1.
-    if not np.isfinite(tie_break_usd_per_mwh) or tie_break_usd_per_mwh < 0:
-        raise ValueError("tie_break_usd_per_mwh must be finite and nonnegative")
-    objective = cost.copy()
-    later = (T - np.arange(T)) / T  # 1 in the first step down to 1/T in the last
-    for start in (c, d, a):
-        objective[start:start+T] += tie_break_usd_per_mwh * later * DT_HOURS
-    rows, cols, values, lo, hi = [], [], [], [], []
-    def add(entries, lb, ub):
-        row = len(lo)
-        for col, value in entries:
-            rows.append(row); cols.append(col); values.append(value)
-        lo.append(lb); hi.append(ub)
-    for t in range(T):
-        add([(e+t+1, 1.), (e+t, -1.), (c+t, -params.eta_charge*DT_HOURS),
-             (d+t, DT_HOURS/params.eta_discharge)], 0., 0.)
-        add([(c+t, 1.), (u+t, P)], -np.inf, P)
-        add([(d+t, 1.), (a+t, 1.), (u+t, -P)], -np.inf, 0.)
-        add([(a+t, rules.duration_hours/params.eta_discharge), (e+t+1, -1.)],
-            -np.inf, -params.soc_min*E)
-    matrix = coo_matrix((values, (rows, cols)), shape=(len(lo), N)).tocsc()
-    result = milp(objective, integrality=integ, bounds=Bounds(lower, upper),
-                  constraints=LinearConstraint(matrix, lo, hi),
-                  options={"time_limit": time_limit, "mip_rel_gap": 0.})
-    if result.status != 0:
-        raise RuntimeError(f"reservation MILP not optimal: {result.message}")
-    x = result.x
-    return ReservationPlan(
-        actions_mw=np.column_stack([x[d:d+T] - x[c:c+T], x[a:a+T]]),
-        soc_after=x[e+1:e+T+1]/E, net_proxy_usd=float(-(cost @ x)),
-        mip_gap=float(result.mip_gap),
-    )

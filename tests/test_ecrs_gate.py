@@ -186,8 +186,8 @@ def test_runner_accepts_complete_panel_in_any_time_unit(tmp_path, monkeypatch, u
                                       "--start", "2026-02-02", "--end", "2026-02-02", "--skip-oracle"])
     runner.main()
     quality = json.loads((out/"data_quality.json").read_text())
-    assert quality["selected_panel"]["evaluated_intervals"] == 288
-    assert quality["selected_panel"]["timestamp_gaps"] == 0
+    assert quality["selected_panels"]["evaluated_intervals"] == 288
+    assert quality["selected_panels"]["skipped"] == []
 
 
 def test_tie_break_acts_least_and_latest_without_losing_value():
@@ -208,3 +208,39 @@ def test_tie_break_acts_least_and_latest_without_losing_value():
 def test_tie_break_must_be_nonnegative():
     with pytest.raises(ValueError, match="tie_break"):
         solve_reservation(np.ones((2, 2)), BatteryParams(), ECRSRules(), 0., tie_break_usd_per_mwh=-1.)
+
+
+def test_runner_on_sced_cache_skips_panels_with_estimated_prices(tmp_path, monkeypatch):
+    # Three one-day panels from a synthetic SCED cache; one ECRS run of the
+    # second day is missing, so that panel and the next (its history) are
+    # skipped and reported, and totals cover the first panel only.
+    from pathlib import Path
+    import json, sys
+    from scripts import run_ecrs_gate as runner
+    from rtcb_gym.data import sced
+    ts = pd.date_range("2026-01-31T05:45:20Z", "2026-02-04T06:00:00Z", freq="5min")
+    rng = np.random.default_rng(0)
+    frames = {
+        (sced.SCED_LMP_DATASET, "HB_WEST"): pd.DataFrame({"sced_timestamp_utc": ts, "lmp": rng.normal(30, 20, len(ts))}),
+        (sced.ADDERS_DATASET, "HB_WEST"): pd.DataFrame({"sced_timestamp_utc": ts, "rtrdpa": 0.0}),
+        (sced.SCED_MCPC_DATASET, "ECRS"): pd.DataFrame({"sced_timestamp_utc": ts, "mcpc": rng.uniform(0, 5, len(ts))})
+        .drop(index=int(np.searchsorted(ts, pd.Timestamp("2026-02-02T12:00Z")))),
+    }
+    for (dataset, key), frame in frames.items():
+        folder = tmp_path/"gridstatusio"/dataset/key
+        folder.mkdir(parents=True)
+        frame.to_parquet(folder/"x.parquet", index=False)
+    monkeypatch.chdir(Path(runner.__file__).resolve().parents[1])
+    out = tmp_path/"out"
+    monkeypatch.setattr(sys, "argv", ["run_ecrs_gate.py", "--source", "gridstatus", "--raw-dir", str(tmp_path),
+                                      "--out-dir", str(out), "--start", "2026-02-01", "--end", "2026-02-03",
+                                      "--panel-days", "1", "--horizon", "3"])
+    runner.main()
+    summary = json.loads((out/"summary.json").read_text())
+    assert [p["start"][:10] for p in summary["panels"]] == ["2026-02-01"]
+    assert [p["start"][:10] for p in summary["skipped_panels"]] == ["2026-02-02", "2026-02-03"]
+    totals = {t["policy"]: t for t in summary["totals"]}
+    assert totals["oracle_1h"]["panels"] == 1 and totals["oracle_1h"]["intervals"] == 288
+    assert totals["oracle_0.25h"]["revenue_proxy_usd"] >= totals["oracle_1h"]["revenue_proxy_usd"] - 1e-6
+    assert totals["ecrs_mpc_1h"]["clipped_ecrs_intervals"] == 0
+    assert summary["protocol"]["source"] == "gridstatus" and not list(out.glob("*.csv"))
