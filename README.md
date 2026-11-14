@@ -42,7 +42,30 @@ It uses cash-flow proxies; it does not validate official AS settlement.
 See [the quickstart](docs/quickstart.md) for outputs, real-data requirements
 and current limitations.
 
+## Score your own agent
+
+```bash
+python -m rtcb_gym.evaluate --list                                   # the five tasks
+python -m rtcb_gym.evaluate --task da-rt-energy \
+    --agent examples/agents/threshold.py --source synthetic          # no data needed
+```
+
+An agent is a small class built from a task spec (the rules, the layouts
+and the training prices) and scored against perfect foresight into a JSON
+scorecard: revenue, capture rate with its interval, invalid and clipped
+actions, time per step. Rules, optimisers, learning agents and language
+models go through the same door; `rtcb_gym.text.TextAgent` gives a
+language model the task as text and parses its JSON replies, without
+tying the library to any provider. [Guide](docs/benchmark.md).
+
+<!-- LEADERBOARD -->
+
 ## Status
+
+**v0.5.0**: a benchmark layer on top of the environment: five named
+tasks, one way to plug in any agent, a text interface for language models,
+synthetic prices for development without data, and scorecards
+([guide](docs/benchmark.md)).
 
 **v0.4.0**: one environment for everything. `RTCBEnv` now also does
 five-minute dispatch with 15-minute settlement, ECRS (real time and
@@ -688,6 +711,11 @@ rtcb_gym/settlement.py        money: real-time only and two-settlement
 rtcb_gym/day_ahead.py         day-ahead timeline, context, bids, clearing and clipping
 rtcb_gym/env.py               Gymnasium environment (all options)
 rtcb_gym/wrappers.py          observation scaling for learning agents
+rtcb_gym/benchmark.py         tasks, task spec, evaluate, scorecard, leaderboard
+rtcb_gym/evaluate.py          command line: python -m rtcb_gym.evaluate
+rtcb_gym/text.py              text interface for language-model agents
+rtcb_gym/data/synthetic.py    seeded synthetic prices (not ERCOT data)
+examples/agents/              a threshold agent and a scripted text agent
 rtcb_gym/evaluation.py        runs, metrics, bootstrap intervals
 rtcb_gym/baselines/           perfect foresight, threshold rules, MPC, day-ahead, offers, ECRS
 rtcb_gym/experimental/ecrs.py the continuous-panel model of the ECRS gate
@@ -695,6 +723,7 @@ scripts/                      download_data.py, download_5min.py, run_baselines.
                               run_ecrs_gate.py, export_5min.py, summarize_results.py
 results/<hub>/                real_time, two_settlement, cross_day, sensitivity, energy_ecrs (.md, .json)
 results/ecrs_gate/            ECRS duration gate: protocols, data checks, summaries
+results/benchmark/<hub>/      scorecards of the reference agents, LEADERBOARD.md
 tests/                        unit tests (synthetic prices only)
 ```
 
@@ -721,7 +750,7 @@ no-look-ahead guarantee and an exact upper bound.
 |---|---|
 | 1 | ERCOT's ancillary-service settlement (Section 6.7) checked term by term against the ECRS ledger here |
 | 2 | Deployment from data instead of an input; charging-side reserve (curtailing charge as upward reserve) |
-| 3 | A stronger causal baseline for the five-minute energy + ECRS setting, and a learning-agent example |
+| 3 | Stronger agents on the benchmark: a real forecaster with MPC, a trained RL policy, a language model |
 | 4 | Independent reproduction on another machine; resource-node prices |
 | Later | Other AS products, each with its own rule and accounting validation |
 

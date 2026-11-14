@@ -18,7 +18,7 @@ from rtcb_gym.env import RTCBEnv
 from rtcb_gym.settlement import Settlement, settle_real_time, settle_two_settlement
 from rtcb_gym.wrappers import ScaledObservation
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 ENV_ID = "RTCBGym-v0"
 if ENV_ID not in _gym.registry:

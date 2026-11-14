@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rtcb-gym"
-version = "0.4.0"
+version = "0.5.0"
 description = "Open battery-storage environment for the post-RTC+B ERCOT market: real-time and day-ahead (two-settlement), energy and ECRS."
 readme = "README.md"
 license = { file = "LICENSE" }
