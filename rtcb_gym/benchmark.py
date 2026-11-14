@@ -183,7 +183,7 @@ def load_series(task: Task, source: str = "real", config: dict | None = None, se
         cached = sced.read_sced_cache(raw, sced.SCED_LMP_DATASET, m["location"])
         stamps = pd.to_datetime(cached["sced_timestamp_utc"], utc=True)
         lo = max(stamps.min().ceil("5min"), operating_day_bounds_utc(splits["train"][0], m["timezone"])[0])
-        hi = min(stamps.max().floor("5min"), operating_day_bounds_utc(splits["test"][1], m["timezone"])[1])
+        hi = min(stamps.max().ceil("5min"), operating_day_bounds_utc(splits["test"][1], m["timezone"])[1])
         tape = sced.real_time_tape(
             cached, sced.read_sced_cache(raw, sced.ADDERS_DATASET, m["location"]),
             sced.read_sced_cache(raw, sced.SCED_MCPC_DATASET, "ECRS"), lo, hi)

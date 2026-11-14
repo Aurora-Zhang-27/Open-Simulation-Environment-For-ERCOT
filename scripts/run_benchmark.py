@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
-
 from rtcb_gym.benchmark import TASKS, evaluate, leaderboard
 from rtcb_gym.config import REPO_ROOT, load_config
 from rtcb_gym.evaluate import load_agent
@@ -40,21 +38,21 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=None)
     ap.add_argument("--splits", nargs="+", default=["validation", "test"])
+    ap.add_argument("--tasks", nargs="+", default=list(RUNS), help="rerun only these; other scorecards are kept")
     args = ap.parse_args()
     cfg = load_config(args.config)
     hub = cfg["market"]["location"].lower()
     out = REPO_ROOT / "results" / "benchmark" / hub
-    cards = []
     assert set(RUNS) == set(TASKS)
     for split in args.splits:
-        for task, agents in RUNS.items():
-            for name in agents:
+        for task in args.tasks:
+            for name in RUNS[task]:
                 card = evaluate(load_agent(AGENTS[name]), task, split=split, config=cfg)
                 path = out / split / f"{task}__{name}.json"
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(json.dumps(clean_nan(card), indent=2, default=str) + "\n")
-                cards.append(card)
                 print(f"{split} {task} {card['agent']}: {card['revenue_usd']:,.0f} ({card['capture_rate']:.1%})", flush=True)
+    cards = [json.loads(p.read_text()) for p in sorted(out.glob("*/*.json"))]
     table = leaderboard(cards)
     (out / "LEADERBOARD.md").write_text("\n".join([
         f"# RTCB-Gym benchmark: {cfg['market']['location']}",

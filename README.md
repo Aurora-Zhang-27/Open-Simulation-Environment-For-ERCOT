@@ -58,7 +58,21 @@ models go through the same door; `rtcb_gym.text.TextAgent` gives a
 language model the task as text and parses its JSON replies, without
 tying the library to any provider. [Guide](docs/benchmark.md).
 
-<!-- LEADERBOARD -->
+Where the reference agents stand (HB_WEST, test split, capture rate with
+its 95% interval; [all scorecards](results/benchmark/hb_west/LEADERBOARD.md)):
+
+| Task | Best reference agent | Capture rate |
+|---|---|---:|
+| `rt-energy` | persistence MPC | 46.9% (33.1 to 58.9) |
+| `rt-energy-offer` | persistence MPC, as price-taking offers | 46.9% (33.1 to 58.9) |
+| `da-rt-energy` | day-ahead schedule, delivered | 29.1% (22.9 to 37.0) |
+| `da-rt-energy-7day` | day-ahead schedule, delivered | 28.6% (22.3 to 36.2) |
+| `da-rt-energy-ecrs-5min` | day-ahead schedule, delivered | 25.0% (19.3 to 32.6) |
+
+These agents are simple on purpose: on every task with a day-ahead market
+more than two thirds of the bound is unclaimed. The scripted "text agent"
+in the examples is a few lines of Python standing in for a language
+model; no language model has been scored yet.
 
 ## Status
 
