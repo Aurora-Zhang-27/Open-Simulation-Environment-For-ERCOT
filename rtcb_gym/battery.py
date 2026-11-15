@@ -33,6 +33,9 @@ from typing import Any
 # counted as clipped. It absorbs floating-point and LP-solver round-off
 # (0.1 kW on a 100 MW battery).
 CLIP_TOL_MW = 1e-4
+# A SoC this far below a floor counts as on the floor: floating-point
+# round-off (2e-8 MWh on a 200 MWh battery), not a reason to force a charge.
+SOC_ROUNDOFF = 1e-10
 
 
 @dataclass(frozen=True)
@@ -105,8 +108,8 @@ def _power_range(
             floor, floor_name = f, "soc_terminal"
     max_charge = (params.soc_max - soc) * e / (params.eta_charge * dt_hours)
     lo = -min(params.power_mw, max(max_charge, 0.0))
-    if soc >= floor:
-        hi = min(params.power_mw, (soc - floor) * e * params.eta_discharge / dt_hours)
+    if soc >= floor - SOC_ROUNDOFF:
+        hi = min(params.power_mw, max(soc - floor, 0.0) * e * params.eta_discharge / dt_hours)
     else:  # below the floor: must charge at least this much
         hi = -(floor - soc) * e / (params.eta_charge * dt_hours)
     return lo, max(hi, lo), floor_name

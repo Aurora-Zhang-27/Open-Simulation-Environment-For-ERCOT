@@ -2,6 +2,8 @@
 
 import math
 
+import numpy as np
+
 import pytest
 
 from rtcb_gym.battery import Battery, BatteryParams, battery_step, feasible_power_range, terminal_floor
@@ -173,3 +175,18 @@ def test_terminal_target_ignored_without_steps_left():
 def test_terminal_target_far_from_end_does_not_bind():
     actual, _, info = battery_step(T50, 0.6, 100.0, DT, steps_left=50)
     assert actual == 100.0 and not info["clipped"]
+
+
+def test_round_off_below_the_floor_does_not_force_a_charge():
+    # A SoC a hair under the end target (solver round-off) must not force a
+    # tiny charge: with ECRS, any charge would cancel the whole reserve award.
+    from rtcb_gym.ancillary import ECRSRules, reservation_step
+
+    p = BatteryParams(soc_init=0.5, soc_terminal_min=0.5)
+    lo, hi = feasible_power_range(p, 0.5 - 9e-12, 1 / 12, steps_left=1)
+    assert hi == 0.0 and lo < 0
+    actual, soc, info = reservation_step(p, ECRSRules(), 0.5 - 9e-12, np.array([0.0, 90.0]), 1)
+    assert actual[0] == 0.0 and actual[1] == pytest.approx(90.0) and not info["ecrs_clipped"]
+    # a real shortfall still forces charging
+    lo, hi = feasible_power_range(p, 0.49, 1 / 12, steps_left=1)
+    assert hi < 0

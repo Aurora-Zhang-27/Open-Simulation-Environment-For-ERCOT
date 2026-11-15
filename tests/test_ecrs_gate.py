@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from gymnasium.utils.env_checker import check_env
 
-from rtcb_gym.battery import BatteryParams, terminal_floor
+from rtcb_gym.battery import BatteryParams
 from rtcb_gym.experimental.ecrs import (
     DT_HOURS, STEP, ECRSRules, ECRSReservationEnv, FiveMinuteTape,
     ecrs_capacity_mw, reservation_step, reservation_revenue, solve_reservation,

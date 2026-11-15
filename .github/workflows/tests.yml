@@ -23,3 +23,5 @@ jobs:
       - run: pytest -q
       - name: Offline CPU example (no market-data credentials)
         run: python -m rtcb_gym.demo --out results/demo
+      - name: Score an example agent on a synthetic task
+        run: python -m rtcb_gym.evaluate --task da-rt-energy --agent examples/agents/threshold.py --source synthetic
