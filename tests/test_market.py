@@ -21,7 +21,7 @@ from rtcb_gym.baselines import (
     fit_level_correction, solve_dispatch,
 )
 from rtcb_gym.day_ahead import DayAheadBid, clear_bid, feasible_day_ahead, feasible_day_ahead_with_ecrs
-from rtcb_gym.env import OFFER_CAP, OFFER_FLOOR
+from rtcb_gym.env import OFFER_FLOOR
 from rtcb_gym.evaluation import bootstrap_ci, run_policy, top_days_share
 from rtcb_gym.experimental.ecrs import ECRSReservationEnv, FiveMinuteTape
 from tests.conftest import make_da_prices, make_prices

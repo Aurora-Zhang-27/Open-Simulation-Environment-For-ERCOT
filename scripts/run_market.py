@@ -29,7 +29,6 @@ import json
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 
-import numpy as np
 import pandas as pd
 
 from rtcb_gym.ancillary import ECRSRules

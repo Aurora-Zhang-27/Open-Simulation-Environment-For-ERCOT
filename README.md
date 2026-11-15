@@ -81,7 +81,7 @@ tasks, one way to plug in any agent, a text interface for language models,
 synthetic prices for development without data, and scorecards
 ([guide](docs/benchmark.md)).
 
-**v0.4.0**: one environment for everything. `RTCBEnv` now also does
+**v0.4.0** ([all changes](CHANGELOG.md)): one environment for everything. `RTCBEnv` now also does
 five-minute dispatch with 15-minute settlement, ECRS (real time and
 day-ahead, with an optional deployment input), offer-curve actions,
 day-ahead bids with limit prices, and two-settlement episodes of several
